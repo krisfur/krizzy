@@ -7,7 +7,8 @@ Lightweight Kanban board built with Go, Echo, Templ, Datastar, and SQLite.
 
 ## Requirements
 
-- Go 1.21+
+- **Go 1.21+** - Required for building and running the app
+- **Node.js + npm** - Optional, for building Tailwind CSS locally (uses CDN by default)
 
 ## Run
 
