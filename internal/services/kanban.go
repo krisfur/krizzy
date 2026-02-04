@@ -50,13 +50,19 @@ func (s *KanbanService) GetBoardWithData(boardID int64) (*models.Board, error) {
 		if err != nil {
 			return nil, err
 		}
-		// Load assignees for each card
+		// Load assignees and checklist for each card
 		for j := range cards {
 			assignees, err := s.personRepo.GetByCardID(cards[j].ID)
 			if err != nil {
 				return nil, err
 			}
 			cards[j].Assignees = assignees
+
+			checklist, err := s.checklistRepo.GetByCardID(cards[j].ID)
+			if err != nil {
+				return nil, err
+			}
+			cards[j].Checklist = checklist
 		}
 		columns[i].Cards = cards
 	}

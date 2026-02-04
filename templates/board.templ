@@ -27,7 +27,7 @@ templ BoardPage(board *models.Board) {
 			<div
 				id="modal-backdrop"
 				class="hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50"
-				onclick="if(event.target === this) this.classList.add('hidden')"
+				onclick="if(event.target === this) closeModalAndRefresh()"
 			>
 				<div id="modal-content" class="bg-dark-800 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto border border-dark-600">
 					<!-- Modal content loaded via HTMX -->
@@ -38,19 +38,18 @@ templ BoardPage(board *models.Board) {
 }
 
 templ BoardContent(board *models.Board) {
-	<div id="columns-container" class="flex gap-4 overflow-x-auto pb-4" data-board-id={ fmt.Sprintf("%d", board.ID) }>
+	<div id="columns-container" class="flex gap-4 overflow-x-auto pb-4 items-start" data-board-id={ fmt.Sprintf("%d", board.ID) }>
 		for _, column := range board.Columns {
 			@ColumnComponent(&column, board.ID)
 		}
 		<!-- Add Column -->
-		<div class="flex-shrink-0 w-72">
+		<div class="flex-shrink-0 w-72 self-start">
 			<form
 				hx-post="/columns"
 				hx-target="#board-content"
 				hx-swap="innerHTML"
 				hx-on::after-request="this.reset()"
 				class="bg-dark-800 rounded-lg p-3 border border-dark-600"
-				onclick="event.stopPropagation()"
 			>
 				<input type="hidden" name="board_id" value={ fmt.Sprintf("%d", board.ID) }/>
 				<input

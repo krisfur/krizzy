@@ -28,6 +28,9 @@ templ CardComponent(card *models.Card) {
 				}
 			</div>
 		}
+		if len(card.Checklist) > 0 {
+			@cardChecklistProgress(card.Checklist)
+		}
 		if card.CompletedAt != nil {
 			<div class="flex items-center gap-1 mt-2 text-xs text-green-400">
 				<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -36,5 +39,32 @@ templ CardComponent(card *models.Card) {
 				<span>Completed { card.CompletedAt.Format("Jan 2") }</span>
 			</div>
 		}
+	</div>
+}
+
+templ cardChecklistProgress(items []models.ChecklistItem) {
+	{{
+		completed := 0
+		for _, item := range items {
+			if item.IsCompleted {
+				completed++
+			}
+		}
+		percentage := (completed * 100) / len(items)
+		allDone := completed == len(items)
+	}}
+	<div class="flex items-center gap-2 mt-2">
+		<svg class={ "w-3 h-3", templ.KV("text-green-400", allDone), templ.KV("text-dark-400", !allDone) } fill="none" stroke="currentColor" viewBox="0 0 24 24">
+			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+		</svg>
+		<div class="flex-1 bg-dark-600 rounded-full h-1.5">
+			<div
+				class={ "h-1.5 rounded-full transition-all", templ.KV("bg-green-500", allDone), templ.KV("bg-go-blue", !allDone) }
+				style={ fmt.Sprintf("width: %d%%", percentage) }
+			></div>
+		</div>
+		<span class={ "text-xs", templ.KV("text-green-400", allDone), templ.KV("text-dark-400", !allDone) }>
+			{ fmt.Sprintf("%d/%d", completed, len(items)) }
+		</span>
 	</div>
 }

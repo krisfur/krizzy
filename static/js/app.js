@@ -17,13 +17,12 @@ function initializeSortable() {
             draggable: '[data-column-id]',
             ghostClass: 'sortable-ghost',
             chosenClass: 'sortable-chosen',
-            filter: 'input, button, form',
+            handle: '.column-header',
             onEnd: function(evt) {
                 const boardId = columnsContainer.dataset.boardId;
                 const columnIds = Array.from(columnsContainer.querySelectorAll('[data-column-id]'))
                     .map(col => col.dataset.columnId);
 
-                // Send reorder request
                 const formData = new FormData();
                 formData.append('board_id', boardId);
                 columnIds.forEach(id => formData.append('column_ids', id));
@@ -46,13 +45,11 @@ function initializeSortable() {
                 draggable: '.card-item',
                 ghostClass: 'sortable-ghost',
                 chosenClass: 'sortable-chosen',
-                filter: 'input, button',
                 onEnd: function(evt) {
                     const cardId = evt.item.dataset.cardId;
                     const newColumnId = evt.to.dataset.columnId;
                     const newPosition = evt.newIndex;
 
-                    // Send move request
                     fetch(`/cards/${cardId}/move`, {
                         method: 'POST',
                         headers: {
@@ -88,7 +85,6 @@ function initializeSortable() {
                     const itemIds = Array.from(container.querySelectorAll('.checklist-item'))
                         .map(item => item.dataset.itemId);
 
-                    // Send reorder request
                     const formData = new FormData();
                     itemIds.forEach(id => formData.append('item_ids', id));
 
@@ -100,4 +96,10 @@ function initializeSortable() {
             });
         }
     });
+}
+
+// Refresh board when modal closes
+function closeModalAndRefresh() {
+    document.getElementById('modal-backdrop').classList.add('hidden');
+    htmx.ajax('GET', '/', {target: '#board-content', swap: 'innerHTML'});
 }
