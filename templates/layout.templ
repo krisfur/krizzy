@@ -8,6 +8,29 @@ templ Layout(title string) {
 			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 			<title>{ title }</title>
 			<script src="https://cdn.tailwindcss.com"></script>
+			<script>
+				tailwind.config = {
+					theme: {
+						extend: {
+							colors: {
+								'go-blue': '#00ADD8',
+								'go-blue-dark': '#0097b9',
+								'dark': {
+									'900': '#0d1117',
+									'800': '#161b22',
+									'700': '#21262d',
+									'600': '#30363d',
+									'500': '#484f58',
+									'400': '#6e7681',
+									'300': '#8b949e',
+									'200': '#c9d1d9',
+									'100': '#f0f6fc',
+								}
+							}
+						}
+					}
+				}
+			</script>
 			<script src="https://unpkg.com/htmx.org@2.0.4"></script>
 			<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 			<style>
@@ -15,14 +38,14 @@ templ Layout(title string) {
 					opacity: 0.4;
 				}
 				.sortable-chosen {
-					background-color: #e5e7eb;
+					background-color: #30363d !important;
 				}
 				.htmx-request {
 					opacity: 0.7;
 				}
 			</style>
 		</head>
-		<body class="bg-gray-100 min-h-screen" hx-boost="true">
+		<body class="bg-dark-900 min-h-screen text-dark-100">
 			{ children... }
 			<script src="/static/js/app.js"></script>
 		</body>
