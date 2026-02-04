@@ -1,0 +1,84 @@
+/* Custom styles for Krizzy */
+
+/* Sortable drag and drop styles */
+.sortable-ghost {
+    opacity: 0.4;
+    background: #c8ebfb;
+}
+
+.sortable-chosen {
+    background-color: #e5e7eb;
+}
+
+/* Card hover effects */
+.card-item {
+    transition: box-shadow 0.2s ease-in-out, transform 0.1s ease-in-out;
+}
+
+.card-item:hover {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.card-item:active {
+    transform: scale(1.02);
+}
+
+/* Column styles */
+[data-column-id] {
+    transition: background-color 0.2s ease-in-out;
+}
+
+/* Modal backdrop */
+[data-show="$modalOpen"] {
+    transition: opacity 0.2s ease-in-out;
+}
+
+/* Scrollbar styling */
+.overflow-x-auto::-webkit-scrollbar {
+    height: 8px;
+}
+
+.overflow-x-auto::-webkit-scrollbar-track {
+    background: #e5e7eb;
+    border-radius: 4px;
+}
+
+.overflow-x-auto::-webkit-scrollbar-thumb {
+    background: #9ca3af;
+    border-radius: 4px;
+}
+
+.overflow-x-auto::-webkit-scrollbar-thumb:hover {
+    background: #6b7280;
+}
+
+/* Progress bar animation */
+.h-2.rounded-full {
+    transition: width 0.3s ease-in-out, background-color 0.3s ease-in-out;
+}
+
+/* Checklist item hover */
+.checklist-item {
+    transition: background-color 0.15s ease-in-out;
+}
+
+.checklist-item:hover {
+    background-color: #e5e7eb;
+}
+
+/* Comment hover */
+.p-3.bg-gray-50.rounded-lg {
+    transition: background-color 0.15s ease-in-out;
+}
+
+.p-3.bg-gray-50.rounded-lg:hover {
+    background-color: #e5e7eb;
+}
+
+/* Line clamp for card descriptions */
+.line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}

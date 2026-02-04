@@ -1,0 +1,19 @@
+# Build
+bin/
+*.exe
+
+# Database
+*.db
+*.db-journal
+
+# Generated
+*_templ.go
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+

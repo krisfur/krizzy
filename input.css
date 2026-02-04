@@ -1,0 +1,10 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom component styles */
+@layer components {
+    .card-item {
+        @apply bg-white rounded-lg p-3 shadow-sm cursor-pointer hover:shadow-md transition-shadow;
+    }
+}
