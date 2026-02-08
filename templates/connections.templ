@@ -1,0 +1,143 @@
+package templates
+
+import (
+	"krizzy/internal/models"
+	"fmt"
+)
+
+templ ConnectionsModal(connections []models.PgConnection) {
+	<div class="p-6" onclick="event.stopPropagation()">
+		<div class="flex justify-between items-start mb-4">
+			<h2 class="text-xl font-bold text-dark-100">Manage PG Connections</h2>
+			<button
+				class="text-dark-400 hover:text-dark-200"
+				onclick="closeConnModal()"
+			>
+				<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+				</svg>
+			</button>
+		</div>
+		<div id="connections-list">
+			@ConnectionsList(connections)
+		</div>
+	</div>
+}
+
+templ ConnectionsList(connections []models.PgConnection) {
+	<!-- Add Connection Form -->
+	<form
+		hx-post="/connections"
+		hx-target="#connections-list"
+		hx-swap="innerHTML"
+		hx-on::after-request="if(event.detail.successful) this.reset()"
+		class="mb-4 space-y-3"
+	>
+		<div class="grid grid-cols-2 gap-3">
+			<div>
+				<label class="block text-sm text-dark-300 mb-1">Name</label>
+				<input
+					type="text"
+					name="name"
+					placeholder="My PG Server"
+					class="w-full px-3 py-2 rounded border border-dark-600 bg-dark-700 text-dark-100 placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-go-blue focus:border-transparent text-sm"
+					required
+				/>
+			</div>
+			<div>
+				<label class="block text-sm text-dark-300 mb-1">Host</label>
+				<input
+					type="text"
+					name="host"
+					placeholder="localhost"
+					class="w-full px-3 py-2 rounded border border-dark-600 bg-dark-700 text-dark-100 placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-go-blue focus:border-transparent text-sm"
+					required
+				/>
+			</div>
+			<div>
+				<label class="block text-sm text-dark-300 mb-1">Port</label>
+				<input
+					type="number"
+					name="port"
+					value="5432"
+					class="w-full px-3 py-2 rounded border border-dark-600 bg-dark-700 text-dark-100 focus:outline-none focus:ring-2 focus:ring-go-blue focus:border-transparent text-sm"
+				/>
+			</div>
+			<div>
+				<label class="block text-sm text-dark-300 mb-1">User</label>
+				<input
+					type="text"
+					name="user"
+					placeholder="postgres"
+					class="w-full px-3 py-2 rounded border border-dark-600 bg-dark-700 text-dark-100 placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-go-blue focus:border-transparent text-sm"
+					required
+				/>
+			</div>
+			<div>
+				<label class="block text-sm text-dark-300 mb-1">Password</label>
+				<input
+					type="password"
+					name="password"
+					placeholder="password"
+					class="w-full px-3 py-2 rounded border border-dark-600 bg-dark-700 text-dark-100 placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-go-blue focus:border-transparent text-sm"
+				/>
+			</div>
+			<div>
+				<label class="block text-sm text-dark-300 mb-1">SSL Mode</label>
+				<select
+					name="ssl_mode"
+					class="w-full px-3 py-2 rounded border border-dark-600 bg-dark-700 text-dark-100 focus:outline-none focus:ring-2 focus:ring-go-blue focus:border-transparent text-sm"
+				>
+					<option value="disable">disable</option>
+					<option value="require">require</option>
+					<option value="verify-ca">verify-ca</option>
+					<option value="verify-full">verify-full</option>
+				</select>
+			</div>
+		</div>
+		<button
+			type="submit"
+			class="px-4 py-2 bg-go-blue text-white rounded hover:bg-go-blue-dark font-medium text-sm"
+		>
+			Add Connection
+		</button>
+	</form>
+
+	<!-- Connections List -->
+	<div class="space-y-2">
+		if len(connections) == 0 {
+			<p class="text-dark-400 text-sm">No PostgreSQL connections configured.</p>
+		} else {
+			for _, conn := range connections {
+				<div class="flex items-center justify-between p-3 bg-dark-700 rounded border border-dark-600">
+					<div>
+						<span class="text-dark-200 font-medium">{ conn.Name }</span>
+						<span class="text-dark-400 text-sm ml-2">{ conn.Host }:{ fmt.Sprintf("%d", conn.Port) }</span>
+						<span class="text-dark-500 text-xs ml-2">({ conn.User })</span>
+					</div>
+					<div class="flex gap-2">
+						<button
+							class="px-2 py-1 text-xs bg-dark-600 text-dark-200 rounded hover:bg-dark-500"
+							hx-post={ fmt.Sprintf("/connections/%d/test", conn.ID) }
+							hx-swap="none"
+							hx-on::after-request="if(event.detail.successful) alert('Connection successful!'); else alert(event.detail.xhr.responseText);"
+						>
+							Test
+						</button>
+						<button
+							class="text-red-400 hover:text-red-300"
+							hx-delete={ fmt.Sprintf("/connections/%d", conn.ID) }
+							hx-target="#connections-list"
+							hx-swap="innerHTML"
+							hx-confirm={ fmt.Sprintf("Delete connection '%s'?", conn.Name) }
+						>
+							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+							</svg>
+						</button>
+					</div>
+				</div>
+			}
+		}
+	</div>
+}

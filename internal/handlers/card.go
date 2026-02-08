@@ -5,37 +5,25 @@ import (
 	"strconv"
 
 	"krizzy/internal/models"
-	"krizzy/internal/repository"
 	"krizzy/internal/services"
+	"krizzy/internal/validation"
 	"krizzy/templates"
 
 	"github.com/labstack/echo/v4"
 )
 
 type CardHandler struct {
-	service    *services.KanbanService
-	cardRepo   repository.CardRepository
-	columnRepo repository.ColumnRepository
-	personRepo repository.PersonRepository
+	bm *services.BoardManager
 }
 
-func NewCardHandler(
-	service *services.KanbanService,
-	cardRepo repository.CardRepository,
-	columnRepo repository.ColumnRepository,
-	personRepo repository.PersonRepository,
-) *CardHandler {
-	return &CardHandler{
-		service:    service,
-		cardRepo:   cardRepo,
-		columnRepo: columnRepo,
-		personRepo: personRepo,
-	}
+func NewCardHandler(bm *services.BoardManager) *CardHandler {
+	return &CardHandler{bm: bm}
 }
 
 type CreateCardRequest struct {
 	ColumnID int64  `form:"column_id"`
 	Title    string `form:"title"`
+	BoardID  int64  `form:"board_id"`
 }
 
 func (h *CardHandler) CreateCard(c echo.Context) error {
@@ -44,21 +32,23 @@ func (h *CardHandler) CreateCard(c echo.Context) error {
 		return c.String(http.StatusBadRequest, "Invalid request")
 	}
 
+	req.Title = validation.SanitizeName(req.Title)
+
+	svc, err := h.bm.GetServiceForBoard(req.BoardID)
+	if err != nil {
+		return c.String(http.StatusNotFound, "Board not found")
+	}
+
 	card := &models.Card{
 		ColumnID: req.ColumnID,
 		Title:    req.Title,
 	}
 
-	if err := h.cardRepo.Create(card); err != nil {
+	if err := svc.CardRepo.Create(card); err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to create card")
 	}
 
-	column, err := h.columnRepo.GetByID(req.ColumnID)
-	if err != nil {
-		return c.String(http.StatusInternalServerError, "Failed to load column")
-	}
-
-	board, err := h.service.GetBoardWithData(column.BoardID)
+	board, err := svc.GetBoardWithData(req.BoardID)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to load board")
 	}
@@ -69,6 +59,7 @@ func (h *CardHandler) CreateCard(c echo.Context) error {
 type UpdateCardRequest struct {
 	Title       string `form:"title"`
 	Description string `form:"description"`
+	BoardID     int64  `form:"board_id"`
 }
 
 func (h *CardHandler) UpdateCard(c echo.Context) error {
@@ -82,7 +73,12 @@ func (h *CardHandler) UpdateCard(c echo.Context) error {
 		return c.String(http.StatusBadRequest, "Invalid request")
 	}
 
-	card, err := h.cardRepo.GetByID(id)
+	svc, err := h.bm.GetServiceForBoard(req.BoardID)
+	if err != nil {
+		return c.String(http.StatusNotFound, "Board not found")
+	}
+
+	card, err := svc.CardRepo.GetByID(id)
 	if err != nil {
 		return c.String(http.StatusNotFound, "Card not found")
 	}
@@ -90,22 +86,21 @@ func (h *CardHandler) UpdateCard(c echo.Context) error {
 	card.Title = req.Title
 	card.Description = req.Description
 
-	if err := h.cardRepo.Update(card); err != nil {
+	if err := svc.CardRepo.Update(card); err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to update card")
 	}
 
-	// Return updated modal
-	cardWithDetails, err := h.service.GetCardWithDetails(id)
+	cardWithDetails, err := svc.GetCardWithDetails(id)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to load card")
 	}
 
-	people, err := h.personRepo.GetAll()
+	people, err := svc.PersonRepo.GetByBoardID(req.BoardID)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to load people")
 	}
 
-	return templates.CardModal(cardWithDetails, people).Render(c.Request().Context(), c.Response().Writer)
+	return templates.CardModal(cardWithDetails, people, req.BoardID).Render(c.Request().Context(), c.Response().Writer)
 }
 
 func (h *CardHandler) DeleteCard(c echo.Context) error {
@@ -114,21 +109,18 @@ func (h *CardHandler) DeleteCard(c echo.Context) error {
 		return c.String(http.StatusBadRequest, "Invalid card ID")
 	}
 
-	card, err := h.cardRepo.GetByID(id)
+	boardID, _ := strconv.ParseInt(c.QueryParam("board_id"), 10, 64)
+
+	svc, err := h.bm.GetServiceForBoard(boardID)
 	if err != nil {
-		return c.String(http.StatusNotFound, "Card not found")
+		return c.String(http.StatusNotFound, "Board not found")
 	}
 
-	column, err := h.columnRepo.GetByID(card.ColumnID)
-	if err != nil {
-		return c.String(http.StatusInternalServerError, "Failed to load column")
-	}
-
-	if err := h.cardRepo.Delete(id); err != nil {
+	if err := svc.CardRepo.Delete(id); err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to delete card")
 	}
 
-	board, err := h.service.GetBoardWithData(column.BoardID)
+	board, err := svc.GetBoardWithData(boardID)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to load board")
 	}
@@ -139,6 +131,7 @@ func (h *CardHandler) DeleteCard(c echo.Context) error {
 type MoveCardRequest struct {
 	ColumnID int64 `json:"column_id" form:"column_id"`
 	Position int   `json:"position" form:"position"`
+	BoardID  int64 `json:"board_id" form:"board_id"`
 }
 
 func (h *CardHandler) MoveCard(c echo.Context) error {
@@ -152,7 +145,12 @@ func (h *CardHandler) MoveCard(c echo.Context) error {
 		return c.String(http.StatusBadRequest, "Invalid request")
 	}
 
-	if err := h.service.MoveCard(id, req.ColumnID, req.Position); err != nil {
+	svc, err := h.bm.GetServiceForBoard(req.BoardID)
+	if err != nil {
+		return c.String(http.StatusNotFound, "Board not found")
+	}
+
+	if err := svc.MoveCard(id, req.ColumnID, req.Position); err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to move card")
 	}
 
@@ -161,6 +159,7 @@ func (h *CardHandler) MoveCard(c echo.Context) error {
 
 type UpdateAssigneesRequest struct {
 	PersonIDs []int64 `form:"person_ids"`
+	BoardID   int64   `form:"board_id"`
 }
 
 func (h *CardHandler) UpdateAssignees(c echo.Context) error {
@@ -174,20 +173,24 @@ func (h *CardHandler) UpdateAssignees(c echo.Context) error {
 		return c.String(http.StatusBadRequest, "Invalid request")
 	}
 
-	if err := h.personRepo.SetCardAssignees(id, req.PersonIDs); err != nil {
+	svc, err := h.bm.GetServiceForBoard(req.BoardID)
+	if err != nil {
+		return c.String(http.StatusNotFound, "Board not found")
+	}
+
+	if err := svc.PersonRepo.SetCardAssignees(id, req.PersonIDs); err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to update assignees")
 	}
 
-	// Return updated assignee picker
-	cardWithDetails, err := h.service.GetCardWithDetails(id)
+	cardWithDetails, err := svc.GetCardWithDetails(id)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to load card")
 	}
 
-	people, err := h.personRepo.GetAll()
+	people, err := svc.PersonRepo.GetByBoardID(req.BoardID)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to load people")
 	}
 
-	return templates.AssigneePicker(cardWithDetails.ID, cardWithDetails.Assignees, people).Render(c.Request().Context(), c.Response().Writer)
+	return templates.AssigneePicker(cardWithDetails.ID, cardWithDetails.Assignees, people, req.BoardID).Render(c.Request().Context(), c.Response().Writer)
 }

@@ -7,12 +7,12 @@ import (
 )
 
 type KanbanService struct {
-	boardRepo     repository.BoardRepository
-	columnRepo    repository.ColumnRepository
-	cardRepo      repository.CardRepository
-	personRepo    repository.PersonRepository
-	commentRepo   repository.CommentRepository
-	checklistRepo repository.ChecklistRepository
+	BoardRepo     repository.BoardRepository
+	ColumnRepo    repository.ColumnRepository
+	CardRepo      repository.CardRepository
+	PersonRepo    repository.PersonRepository
+	CommentRepo   repository.CommentRepository
+	ChecklistRepo repository.ChecklistRepository
 }
 
 func NewKanbanService(
@@ -24,41 +24,41 @@ func NewKanbanService(
 	checklistRepo repository.ChecklistRepository,
 ) *KanbanService {
 	return &KanbanService{
-		boardRepo:     boardRepo,
-		columnRepo:    columnRepo,
-		cardRepo:      cardRepo,
-		personRepo:    personRepo,
-		commentRepo:   commentRepo,
-		checklistRepo: checklistRepo,
+		BoardRepo:     boardRepo,
+		ColumnRepo:    columnRepo,
+		CardRepo:      cardRepo,
+		PersonRepo:    personRepo,
+		CommentRepo:   commentRepo,
+		ChecklistRepo: checklistRepo,
 	}
 }
 
 // GetBoardWithData returns a board with all its columns and cards
 func (s *KanbanService) GetBoardWithData(boardID int64) (*models.Board, error) {
-	board, err := s.boardRepo.GetByID(boardID)
+	board, err := s.BoardRepo.GetByID(boardID)
 	if err != nil {
 		return nil, err
 	}
 
-	columns, err := s.columnRepo.GetByBoardID(boardID)
+	columns, err := s.ColumnRepo.GetByBoardID(boardID)
 	if err != nil {
 		return nil, err
 	}
 
 	for i := range columns {
-		cards, err := s.cardRepo.GetByColumnID(columns[i].ID)
+		cards, err := s.CardRepo.GetByColumnID(columns[i].ID)
 		if err != nil {
 			return nil, err
 		}
 		// Load assignees and checklist for each card
 		for j := range cards {
-			assignees, err := s.personRepo.GetByCardID(cards[j].ID)
+			assignees, err := s.PersonRepo.GetByCardID(cards[j].ID)
 			if err != nil {
 				return nil, err
 			}
 			cards[j].Assignees = assignees
 
-			checklist, err := s.checklistRepo.GetByCardID(cards[j].ID)
+			checklist, err := s.ChecklistRepo.GetByCardID(cards[j].ID)
 			if err != nil {
 				return nil, err
 			}
@@ -71,23 +71,14 @@ func (s *KanbanService) GetBoardWithData(boardID int64) (*models.Board, error) {
 	return board, nil
 }
 
-// GetDefaultBoard returns the default board with all data
-func (s *KanbanService) GetDefaultBoard() (*models.Board, error) {
-	board, err := s.boardRepo.GetDefault()
-	if err != nil {
-		return nil, err
-	}
-	return s.GetBoardWithData(board.ID)
-}
-
 // MoveCard moves a card to a new column/position and handles Done column automation
 func (s *KanbanService) MoveCard(cardID int64, newColumnID int64, newPosition int) error {
-	column, err := s.columnRepo.GetByID(newColumnID)
+	column, err := s.ColumnRepo.GetByID(newColumnID)
 	if err != nil {
 		return err
 	}
 
-	card, err := s.cardRepo.GetByID(cardID)
+	card, err := s.CardRepo.GetByID(cardID)
 	if err != nil {
 		return err
 	}
@@ -101,34 +92,34 @@ func (s *KanbanService) MoveCard(cardID int64, newColumnID int64, newPosition in
 	}
 
 	// Update the card's completed_at
-	if err := s.cardRepo.Update(card); err != nil {
+	if err := s.CardRepo.Update(card); err != nil {
 		return err
 	}
 
 	// Move the card to new position
-	return s.cardRepo.Move(cardID, newColumnID, newPosition)
+	return s.CardRepo.Move(cardID, newColumnID, newPosition)
 }
 
 // GetCardWithDetails returns a card with all its details (assignees, comments, checklist)
 func (s *KanbanService) GetCardWithDetails(cardID int64) (*models.Card, error) {
-	card, err := s.cardRepo.GetByID(cardID)
+	card, err := s.CardRepo.GetByID(cardID)
 	if err != nil {
 		return nil, err
 	}
 
-	assignees, err := s.personRepo.GetByCardID(cardID)
+	assignees, err := s.PersonRepo.GetByCardID(cardID)
 	if err != nil {
 		return nil, err
 	}
 	card.Assignees = assignees
 
-	comments, err := s.commentRepo.GetByCardID(cardID)
+	comments, err := s.CommentRepo.GetByCardID(cardID)
 	if err != nil {
 		return nil, err
 	}
 	card.Comments = comments
 
-	checklist, err := s.checklistRepo.GetByCardID(cardID)
+	checklist, err := s.ChecklistRepo.GetByCardID(cardID)
 	if err != nil {
 		return nil, err
 	}
@@ -137,16 +128,11 @@ func (s *KanbanService) GetCardWithDetails(cardID int64) (*models.Card, error) {
 	return card, nil
 }
 
-// CreateDefaultBoard creates the default board with initial columns
-func (s *KanbanService) CreateDefaultBoard() (*models.Board, error) {
-	board := &models.Board{Name: "My Board"}
-	if err := s.boardRepo.Create(board); err != nil {
-		return nil, err
-	}
-
+// CreateDefaultColumns creates the default columns for a board
+func (s *KanbanService) CreateDefaultColumns(boardID int64) error {
 	columns := []struct {
-		name       string
-		isDoneCol  bool
+		name      string
+		isDoneCol bool
 	}{
 		{"To Do", false},
 		{"In Progress", false},
@@ -155,24 +141,14 @@ func (s *KanbanService) CreateDefaultBoard() (*models.Board, error) {
 
 	for _, col := range columns {
 		column := &models.Column{
-			BoardID:      board.ID,
+			BoardID:      boardID,
 			Name:         col.name,
 			IsDoneColumn: col.isDoneCol,
 		}
-		if err := s.columnRepo.Create(column); err != nil {
-			return nil, err
+		if err := s.ColumnRepo.Create(column); err != nil {
+			return err
 		}
 	}
 
-	return s.GetBoardWithData(board.ID)
-}
-
-// EnsureDefaultBoard ensures a default board exists, creating one if needed
-func (s *KanbanService) EnsureDefaultBoard() (*models.Board, error) {
-	board, err := s.boardRepo.GetDefault()
-	if err != nil {
-		// Create default board if none exists
-		return s.CreateDefaultBoard()
-	}
-	return s.GetBoardWithData(board.ID)
+	return nil
 }

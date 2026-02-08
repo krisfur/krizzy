@@ -2,6 +2,7 @@
 
 Lightweight Kanban board built with Go, Echo, Templ, Datastar, and SQLite.
 
+![boards](./boards.png)
 ![board](./board.png)
 ![modal](./modal.png)
 
@@ -24,6 +25,18 @@ Open http://localhost:8080
 make build
 ./bin/krizzy
 ```
+
+## Postgres (optional)
+
+Boards can optionally be backed by Postgres instead of SQLite. A Docker container is included for local development (requires Docker and may need `sudo`):
+
+```bash
+make pg-up      # start Postgres in background
+make pg-down    # stop Postgres
+make pg-reset   # stop Postgres and wipe data
+```
+
+Once Postgres is running, click **Manage Connections** on the boards page and add a connection with host=`localhost`, port=`5432`, user=`krizzy`, password=`krizzy`. Then create a new board and select "PostgreSQL" as the database type.
 
 ## Configuration
 

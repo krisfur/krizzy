@@ -1,7 +1,11 @@
 package main
 
 import (
+	"fmt"
 	"log"
+	"net/http"
+	"strconv"
+	"strings"
 
 	"krizzy/internal/config"
 	"krizzy/internal/database"
@@ -30,37 +34,23 @@ func main() {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}
 
-	// Initialize repositories
+	// Initialize repositories (always local SQLite for metadata)
 	boardRepo := repository.NewSQLiteBoardRepository(db.DB())
-	columnRepo := repository.NewSQLiteColumnRepository(db.DB())
-	cardRepo := repository.NewSQLiteCardRepository(db.DB())
-	personRepo := repository.NewSQLitePersonRepository(db.DB())
-	commentRepo := repository.NewSQLiteCommentRepository(db.DB())
-	checklistRepo := repository.NewSQLiteChecklistRepository(db.DB())
+	pgConnRepo := repository.NewSQLitePgConnectionRepository(db.DB())
 
-	// Initialize service
-	kanbanService := services.NewKanbanService(
-		boardRepo,
-		columnRepo,
-		cardRepo,
-		personRepo,
-		commentRepo,
-		checklistRepo,
-	)
-
-	// Ensure default board exists
-	if _, err := kanbanService.EnsureDefaultBoard(); err != nil {
-		log.Fatalf("Failed to ensure default board: %v", err)
-	}
+	// Initialize BoardManager
+	bm := services.NewBoardManager(db, boardRepo, pgConnRepo)
+	defer bm.Close()
 
 	// Initialize handlers
-	boardHandler := handlers.NewBoardHandler(kanbanService)
-	columnHandler := handlers.NewColumnHandler(kanbanService, columnRepo)
-	cardHandler := handlers.NewCardHandler(kanbanService, cardRepo, columnRepo, personRepo)
-	modalHandler := handlers.NewModalHandler(kanbanService, personRepo)
-	personHandler := handlers.NewPersonHandler(personRepo)
-	commentHandler := handlers.NewCommentHandler(kanbanService, commentRepo)
-	checklistHandler := handlers.NewChecklistHandler(checklistRepo)
+	boardHandler := handlers.NewBoardHandler(bm)
+	columnHandler := handlers.NewColumnHandler(bm)
+	cardHandler := handlers.NewCardHandler(bm)
+	modalHandler := handlers.NewModalHandler(bm)
+	personHandler := handlers.NewPersonHandler(bm)
+	commentHandler := handlers.NewCommentHandler(bm)
+	checklistHandler := handlers.NewChecklistHandler(bm)
+	connectionHandler := handlers.NewConnectionHandler(bm)
 
 	// Initialize Echo
 	e := echo.New()
@@ -73,8 +63,29 @@ func main() {
 	// Static files
 	e.Static("/static", "static")
 
-	// Routes
-	e.GET("/", boardHandler.GetBoard)
+	// Board list routes
+	e.GET("/", boardHandler.ListBoards)
+	e.POST("/boards", boardHandler.CreateBoard)
+	e.GET("/boards/:id", boardHandler.GetBoard)
+	e.PUT("/boards/:id", boardHandler.RenameBoard)
+	e.DELETE("/boards/:id", boardHandler.DeleteBoard)
+
+	// Board-scoped people modal
+	e.GET("/boards/:id/people", func(c echo.Context) error {
+		boardID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+		if err != nil {
+			return c.String(http.StatusBadRequest, "Invalid board ID")
+		}
+		svc, err := bm.GetServiceForBoard(boardID)
+		if err != nil {
+			return c.String(http.StatusNotFound, "Board not found")
+		}
+		people, err := svc.PersonRepo.GetByBoardID(boardID)
+		if err != nil {
+			return err
+		}
+		return templates.PeopleModal(people, boardID).Render(c.Request().Context(), c.Response().Writer)
+	})
 
 	// Column routes
 	e.POST("/columns", columnHandler.CreateColumn)
@@ -101,17 +112,20 @@ func main() {
 	e.POST("/cards/:id/checklist/reorder", checklistHandler.ReorderItems)
 
 	// People routes
-	e.GET("/people", func(c echo.Context) error {
-		people, err := personRepo.GetAll()
-		if err != nil {
-			return err
-		}
-		return templates.PeopleModal(people).Render(c.Request().Context(), c.Response().Writer)
-	})
 	e.POST("/people", personHandler.CreatePerson)
 	e.DELETE("/people/:id", personHandler.DeletePerson)
 
+	// Connection routes
+	e.GET("/connections", connectionHandler.ListConnections)
+	e.POST("/connections", connectionHandler.CreateConnection)
+	e.POST("/connections/:id/test", connectionHandler.TestConnection)
+	e.DELETE("/connections/:id", connectionHandler.DeleteConnection)
+
 	// Start server
-	log.Printf("Starting Krizzy on %s", cfg.ServerAddress)
+	addr := cfg.ServerAddress
+	if strings.HasPrefix(addr, ":") {
+		addr = fmt.Sprintf("http://localhost%s", addr)
+	}
+	log.Printf("Starting Krizzy on %s", addr)
 	log.Fatal(e.Start(cfg.ServerAddress))
 }

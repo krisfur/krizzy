@@ -2,11 +2,25 @@ package models
 
 import "time"
 
-type Board struct {
+type PgConnection struct {
 	ID        int64
 	Name      string
+	Host      string
+	Port      int
+	User      string
+	Password  string
+	SSLMode   string
 	CreatedAt time.Time
-	Columns   []Column
+}
+
+type Board struct {
+	ID             int64
+	Name           string
+	DbType         string // "local" or "postgres"
+	PgConnectionID *int64
+	PgDatabaseName string
+	CreatedAt      time.Time
+	Columns        []Column
 }
 
 type Column struct {
@@ -20,21 +34,22 @@ type Column struct {
 }
 
 type Card struct {
-	ID           int64
-	ColumnID     int64
-	Title        string
-	Description  string
-	Position     int
-	CompletedAt  *time.Time
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
-	Assignees    []Person
-	Comments     []Comment
-	Checklist    []ChecklistItem
+	ID          int64
+	ColumnID    int64
+	Title       string
+	Description string
+	Position    int
+	CompletedAt *time.Time
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	Assignees   []Person
+	Comments    []Comment
+	Checklist   []ChecklistItem
 }
 
 type Person struct {
 	ID        int64
+	BoardID   int64
 	Name      string
 	CreatedAt time.Time
 }

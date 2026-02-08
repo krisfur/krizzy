@@ -1,12 +1,32 @@
+// Show HTMX error responses as alerts
+document.addEventListener('htmx:responseError', function(event) {
+    var xhr = event.detail.xhr;
+    if (xhr && xhr.responseText) {
+        alert(xhr.responseText);
+    }
+});
+
 // Initialize SortableJS for drag and drop functionality
 document.addEventListener('DOMContentLoaded', function() {
     initializeSortable();
+
+    // Restore pg-fields visibility if browser restored the dropdown value
+    var dbTypeSelect = document.querySelector('select[name="db_type"]');
+    var pgFields = document.getElementById('pg-fields');
+    if (dbTypeSelect && pgFields) {
+        pgFields.style.display = dbTypeSelect.value === 'postgres' ? 'block' : 'none';
+    }
 });
 
 // Re-initialize after HTMX swaps content
 document.addEventListener('htmx:afterSwap', function() {
     initializeSortable();
 });
+
+function getBoardId() {
+    const container = document.getElementById('columns-container');
+    return container ? container.dataset.boardId : null;
+}
 
 function initializeSortable() {
     // Make columns sortable
@@ -49,6 +69,7 @@ function initializeSortable() {
                     const cardId = evt.item.dataset.cardId;
                     const newColumnId = evt.to.dataset.columnId;
                     const newPosition = evt.newIndex;
+                    const boardId = getBoardId();
 
                     fetch(`/cards/${cardId}/move`, {
                         method: 'POST',
@@ -57,12 +78,13 @@ function initializeSortable() {
                         },
                         body: JSON.stringify({
                             column_id: parseInt(newColumnId),
-                            position: newPosition
+                            position: newPosition,
+                            board_id: parseInt(boardId)
                         })
                     }).then(response => {
-                        if (response.ok) {
+                        if (response.ok && boardId) {
                             // Refresh the board to show updated completion status
-                            htmx.ajax('GET', '/', {target: '#board-content', swap: 'innerHTML'});
+                            htmx.ajax('GET', `/boards/${boardId}`, {target: '#board-content', swap: 'innerHTML'});
                         }
                     });
                 }
@@ -85,8 +107,10 @@ function initializeSortable() {
                     const itemIds = Array.from(container.querySelectorAll('.checklist-item'))
                         .map(item => item.dataset.itemId);
 
+                    const boardId = getBoardId();
                     const formData = new FormData();
                     itemIds.forEach(id => formData.append('item_ids', id));
+                    if (boardId) formData.append('board_id', boardId);
 
                     fetch(`/cards/${cardId}/checklist/reorder`, {
                         method: 'POST',
@@ -99,7 +123,37 @@ function initializeSortable() {
 }
 
 // Refresh board when modal closes
-function closeModalAndRefresh() {
+function closeModalAndRefresh(boardId) {
     document.getElementById('modal-backdrop').classList.add('hidden');
-    htmx.ajax('GET', '/', {target: '#board-content', swap: 'innerHTML'});
+    if (!boardId) {
+        boardId = getBoardId();
+    }
+    if (boardId) {
+        htmx.ajax('GET', `/boards/${boardId}`, {target: '#board-content', swap: 'innerHTML'});
+    }
+}
+
+// Close connections modal and refresh the boards list (to update connection dropdown)
+function closeConnModal() {
+    document.getElementById('conn-modal-backdrop').classList.add('hidden');
+    htmx.ajax('GET', '/', {target: '#boards-list', swap: 'innerHTML'});
+}
+
+// Board rename functions
+function startRenameBoard(boardId, currentName) {
+    const form = document.getElementById(`rename-form-${boardId}`);
+    const input = document.getElementById(`rename-input-${boardId}`);
+    if (form) {
+        form.classList.remove('hidden');
+        input.value = currentName;
+        input.focus();
+        input.select();
+    }
+}
+
+function cancelRenameBoard(boardId) {
+    const form = document.getElementById(`rename-form-${boardId}`);
+    if (form) {
+        form.classList.add('hidden');
+    }
 }

@@ -5,23 +5,19 @@ import (
 	"strconv"
 
 	"krizzy/internal/models"
-	"krizzy/internal/repository"
 	"krizzy/internal/services"
+	"krizzy/internal/validation"
 	"krizzy/templates"
 
 	"github.com/labstack/echo/v4"
 )
 
 type ColumnHandler struct {
-	service    *services.KanbanService
-	columnRepo repository.ColumnRepository
+	bm *services.BoardManager
 }
 
-func NewColumnHandler(service *services.KanbanService, columnRepo repository.ColumnRepository) *ColumnHandler {
-	return &ColumnHandler{
-		service:    service,
-		columnRepo: columnRepo,
-	}
+func NewColumnHandler(bm *services.BoardManager) *ColumnHandler {
+	return &ColumnHandler{bm: bm}
 }
 
 type CreateColumnRequest struct {
@@ -35,17 +31,23 @@ func (h *ColumnHandler) CreateColumn(c echo.Context) error {
 		return c.String(http.StatusBadRequest, "Invalid request")
 	}
 
+	req.Name = validation.SanitizeName(req.Name)
+
+	svc, err := h.bm.GetServiceForBoard(req.BoardID)
+	if err != nil {
+		return c.String(http.StatusNotFound, "Board not found")
+	}
+
 	column := &models.Column{
 		BoardID: req.BoardID,
 		Name:    req.Name,
 	}
 
-	if err := h.columnRepo.Create(column); err != nil {
+	if err := svc.ColumnRepo.Create(column); err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to create column")
 	}
 
-	// Return the board partial to refresh the view
-	board, err := h.service.GetBoardWithData(req.BoardID)
+	board, err := svc.GetBoardWithData(req.BoardID)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to load board")
 	}
@@ -56,6 +58,7 @@ func (h *ColumnHandler) CreateColumn(c echo.Context) error {
 type UpdateColumnRequest struct {
 	Name         string `form:"name"`
 	IsDoneColumn bool   `form:"is_done_column"`
+	BoardID      int64  `form:"board_id"`
 }
 
 func (h *ColumnHandler) UpdateColumn(c echo.Context) error {
@@ -69,7 +72,12 @@ func (h *ColumnHandler) UpdateColumn(c echo.Context) error {
 		return c.String(http.StatusBadRequest, "Invalid request")
 	}
 
-	column, err := h.columnRepo.GetByID(id)
+	svc, err := h.bm.GetServiceForBoard(req.BoardID)
+	if err != nil {
+		return c.String(http.StatusNotFound, "Board not found")
+	}
+
+	column, err := svc.ColumnRepo.GetByID(id)
 	if err != nil {
 		return c.String(http.StatusNotFound, "Column not found")
 	}
@@ -77,11 +85,11 @@ func (h *ColumnHandler) UpdateColumn(c echo.Context) error {
 	column.Name = req.Name
 	column.IsDoneColumn = req.IsDoneColumn
 
-	if err := h.columnRepo.Update(column); err != nil {
+	if err := svc.ColumnRepo.Update(column); err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to update column")
 	}
 
-	board, err := h.service.GetBoardWithData(column.BoardID)
+	board, err := svc.GetBoardWithData(req.BoardID)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to load board")
 	}
@@ -95,18 +103,18 @@ func (h *ColumnHandler) DeleteColumn(c echo.Context) error {
 		return c.String(http.StatusBadRequest, "Invalid column ID")
 	}
 
-	column, err := h.columnRepo.GetByID(id)
+	boardID, _ := strconv.ParseInt(c.QueryParam("board_id"), 10, 64)
+
+	svc, err := h.bm.GetServiceForBoard(boardID)
 	if err != nil {
-		return c.String(http.StatusNotFound, "Column not found")
+		return c.String(http.StatusNotFound, "Board not found")
 	}
 
-	boardID := column.BoardID
-
-	if err := h.columnRepo.Delete(id); err != nil {
+	if err := svc.ColumnRepo.Delete(id); err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to delete column")
 	}
 
-	board, err := h.service.GetBoardWithData(boardID)
+	board, err := svc.GetBoardWithData(boardID)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to load board")
 	}
@@ -125,7 +133,12 @@ func (h *ColumnHandler) ReorderColumns(c echo.Context) error {
 		return c.String(http.StatusBadRequest, "Invalid request")
 	}
 
-	if err := h.columnRepo.Reorder(req.BoardID, req.ColumnIDs); err != nil {
+	svc, err := h.bm.GetServiceForBoard(req.BoardID)
+	if err != nil {
+		return c.String(http.StatusNotFound, "Board not found")
+	}
+
+	if err := svc.ColumnRepo.Reorder(req.BoardID, req.ColumnIDs); err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to reorder columns")
 	}
 
