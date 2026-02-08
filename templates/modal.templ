@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-templ CardModal(card *models.Card, people []models.Person) {
+templ CardModal(card *models.Card, people []models.Person, boardID int64) {
 	<div class="p-6" onclick="event.stopPropagation()">
 		<div class="flex justify-between items-start mb-4">
 			<h2 class="text-xl font-bold text-dark-100">{ card.Title }</h2>
@@ -26,6 +26,7 @@ templ CardModal(card *models.Card, people []models.Person) {
 			hx-swap="innerHTML"
 			class="mb-4"
 		>
+			<input type="hidden" name="board_id" value={ fmt.Sprintf("%d", boardID) }/>
 			<label class="block text-sm font-medium text-dark-300 mb-1">Title</label>
 			<input
 				type="text"
@@ -64,21 +65,21 @@ templ CardModal(card *models.Card, people []models.Person) {
 
 		<!-- Assignees -->
 		<div id="assignee-picker">
-			@AssigneePicker(card.ID, card.Assignees, people)
+			@AssigneePicker(card.ID, card.Assignees, people, boardID)
 		</div>
 
 		<hr class="my-4 border-dark-600"/>
 
 		<!-- Checklist -->
 		<div id="checklist-section">
-			@ChecklistComponent(card.ID, card.Checklist)
+			@ChecklistComponent(card.ID, card.Checklist, boardID)
 		</div>
 
 		<hr class="my-4 border-dark-600"/>
 
 		<!-- Comments -->
 		<div id="comments-section">
-			@CommentsList(card.ID, card.Comments)
+			@CommentsList(card.ID, card.Comments, boardID)
 		</div>
 
 		<hr class="my-4 border-dark-600"/>
@@ -87,7 +88,7 @@ templ CardModal(card *models.Card, people []models.Person) {
 		<div class="flex justify-end">
 			<button
 				class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm font-medium"
-				hx-delete={ fmt.Sprintf("/cards/%d", card.ID) }
+				hx-delete={ fmt.Sprintf("/cards/%d?board_id=%d", card.ID, boardID) }
 				hx-target="#board-content"
 				hx-swap="innerHTML"
 				hx-confirm="Delete this card?"
@@ -99,7 +100,7 @@ templ CardModal(card *models.Card, people []models.Person) {
 	</div>
 }
 
-templ PeopleModal(people []models.Person) {
+templ PeopleModal(people []models.Person, boardID int64) {
 	<div class="p-6" onclick="event.stopPropagation()">
 		<div class="flex justify-between items-start mb-4">
 			<h2 class="text-xl font-bold text-dark-100">Manage People</h2>
@@ -113,12 +114,12 @@ templ PeopleModal(people []models.Person) {
 			</button>
 		</div>
 		<div id="people-list">
-			@PeopleList(people)
+			@PeopleList(people, boardID)
 		</div>
 	</div>
 }
 
-templ PeopleList(people []models.Person) {
+templ PeopleList(people []models.Person, boardID int64) {
 	<!-- Add Person Form -->
 	<form
 		hx-post="/people"
@@ -127,6 +128,7 @@ templ PeopleList(people []models.Person) {
 		hx-on::after-request="this.reset()"
 		class="mb-4"
 	>
+		<input type="hidden" name="board_id" value={ fmt.Sprintf("%d", boardID) }/>
 		<div class="flex gap-2">
 			<input
 				type="text"
@@ -154,7 +156,7 @@ templ PeopleList(people []models.Person) {
 					<span class="text-dark-200">{ person.Name }</span>
 					<button
 						class="text-red-400 hover:text-red-300"
-						hx-delete={ fmt.Sprintf("/people/%d", person.ID) }
+						hx-delete={ fmt.Sprintf("/people/%d?board_id=%d", person.ID, boardID) }
 						hx-target="#people-list"
 						hx-swap="innerHTML"
 						hx-confirm={ fmt.Sprintf("Remove %s?", person.Name) }

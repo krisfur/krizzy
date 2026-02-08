@@ -1,0 +1,6 @@
+DROP TABLE IF EXISTS checklist_items;
+DROP TABLE IF EXISTS comments;
+DROP TABLE IF EXISTS card_assignees;
+DROP TABLE IF EXISTS people;
+DROP TABLE IF EXISTS cards;
+DROP TABLE IF EXISTS columns;

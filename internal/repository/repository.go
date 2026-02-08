@@ -32,7 +32,7 @@ type CardRepository interface {
 
 type PersonRepository interface {
 	GetByID(id int64) (*models.Person, error)
-	GetAll() ([]models.Person, error)
+	GetByBoardID(boardID int64) ([]models.Person, error)
 	Create(person *models.Person) error
 	Delete(id int64) error
 	GetByCardID(cardID int64) ([]models.Person, error)
@@ -54,4 +54,12 @@ type ChecklistRepository interface {
 	Delete(id int64) error
 	Reorder(cardID int64, itemIDs []int64) error
 	GetMaxPosition(cardID int64) (int, error)
+}
+
+type PgConnectionRepository interface {
+	GetByID(id int64) (*models.PgConnection, error)
+	GetAll() ([]models.PgConnection, error)
+	Create(conn *models.PgConnection) error
+	Update(conn *models.PgConnection) error
+	Delete(id int64) error
 }

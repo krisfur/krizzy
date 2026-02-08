@@ -5,11 +5,11 @@ import (
 	"fmt"
 )
 
-templ CardComponent(card *models.Card) {
+templ CardComponent(card *models.Card, boardID int64) {
 	<div
 		class="bg-dark-700 rounded-lg p-3 shadow-sm cursor-pointer hover:bg-dark-600 transition-colors card-item border border-dark-600"
 		data-card-id={ fmt.Sprintf("%d", card.ID) }
-		hx-get={ fmt.Sprintf("/cards/%d/modal", card.ID) }
+		hx-get={ fmt.Sprintf("/cards/%d/modal?board_id=%d", card.ID, boardID) }
 		hx-target="#modal-content"
 		hx-swap="innerHTML"
 		hx-trigger="click"

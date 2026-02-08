@@ -16,9 +16,9 @@ func NewSQLiteBoardRepository(db *sql.DB) *SQLiteBoardRepository {
 func (r *SQLiteBoardRepository) GetByID(id int64) (*models.Board, error) {
 	board := &models.Board{}
 	err := r.db.QueryRow(
-		"SELECT id, name, created_at FROM boards WHERE id = ?",
+		"SELECT id, name, db_type, pg_connection_id, pg_database_name, created_at FROM boards WHERE id = ?",
 		id,
-	).Scan(&board.ID, &board.Name, &board.CreatedAt)
+	).Scan(&board.ID, &board.Name, &board.DbType, &board.PgConnectionID, &board.PgDatabaseName, &board.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -26,7 +26,7 @@ func (r *SQLiteBoardRepository) GetByID(id int64) (*models.Board, error) {
 }
 
 func (r *SQLiteBoardRepository) GetAll() ([]models.Board, error) {
-	rows, err := r.db.Query("SELECT id, name, created_at FROM boards ORDER BY id")
+	rows, err := r.db.Query("SELECT id, name, db_type, pg_connection_id, pg_database_name, created_at FROM boards ORDER BY id")
 	if err != nil {
 		return nil, err
 	}
@@ -35,7 +35,7 @@ func (r *SQLiteBoardRepository) GetAll() ([]models.Board, error) {
 	var boards []models.Board
 	for rows.Next() {
 		var board models.Board
-		if err := rows.Scan(&board.ID, &board.Name, &board.CreatedAt); err != nil {
+		if err := rows.Scan(&board.ID, &board.Name, &board.DbType, &board.PgConnectionID, &board.PgDatabaseName, &board.CreatedAt); err != nil {
 			return nil, err
 		}
 		boards = append(boards, board)
@@ -44,9 +44,12 @@ func (r *SQLiteBoardRepository) GetAll() ([]models.Board, error) {
 }
 
 func (r *SQLiteBoardRepository) Create(board *models.Board) error {
+	if board.DbType == "" {
+		board.DbType = "local"
+	}
 	result, err := r.db.Exec(
-		"INSERT INTO boards (name) VALUES (?)",
-		board.Name,
+		"INSERT INTO boards (name, db_type, pg_connection_id, pg_database_name) VALUES (?, ?, ?, ?)",
+		board.Name, board.DbType, board.PgConnectionID, board.PgDatabaseName,
 	)
 	if err != nil {
 		return err
@@ -75,8 +78,8 @@ func (r *SQLiteBoardRepository) Delete(id int64) error {
 func (r *SQLiteBoardRepository) GetDefault() (*models.Board, error) {
 	board := &models.Board{}
 	err := r.db.QueryRow(
-		"SELECT id, name, created_at FROM boards ORDER BY id LIMIT 1",
-	).Scan(&board.ID, &board.Name, &board.CreatedAt)
+		"SELECT id, name, db_type, pg_connection_id, pg_database_name, created_at FROM boards ORDER BY id LIMIT 1",
+	).Scan(&board.ID, &board.Name, &board.DbType, &board.PgConnectionID, &board.PgDatabaseName, &board.CreatedAt)
 	if err != nil {
 		return nil, err
 	}

@@ -14,7 +14,7 @@ func isPersonAssigned(personID int64, assignees []models.Person) bool {
 	return false
 }
 
-templ AssigneePicker(cardID int64, assignees []models.Person, allPeople []models.Person) {
+templ AssigneePicker(cardID int64, assignees []models.Person, allPeople []models.Person, boardID int64) {
 	<div>
 		<h3 class="text-sm font-medium text-dark-300 mb-2">Assignees</h3>
 		if len(allPeople) == 0 {
@@ -25,6 +25,7 @@ templ AssigneePicker(cardID int64, assignees []models.Person, allPeople []models
 				hx-target="#assignee-picker"
 				hx-swap="innerHTML"
 			>
+				<input type="hidden" name="board_id" value={ fmt.Sprintf("%d", boardID) }/>
 				<div class="flex flex-wrap gap-2 mb-2">
 					for _, person := range allPeople {
 						<label class="flex items-center gap-2 cursor-pointer">
@@ -71,7 +72,7 @@ templ AssigneePicker(cardID int64, assignees []models.Person, allPeople []models
 	</div>
 }
 
-templ ChecklistComponent(cardID int64, items []models.ChecklistItem) {
+templ ChecklistComponent(cardID int64, items []models.ChecklistItem, boardID int64) {
 	<div>
 		<h3 class="text-sm font-medium text-dark-300 mb-2">Checklist</h3>
 		if len(items) > 0 {
@@ -79,7 +80,7 @@ templ ChecklistComponent(cardID int64, items []models.ChecklistItem) {
 		}
 		<div class="space-y-2 mb-3 checklist-container" data-card-id={ fmt.Sprintf("%d", cardID) }>
 			for _, item := range items {
-				@checklistItemComponent(&item)
+				@checklistItemComponent(&item, boardID)
 			}
 		</div>
 		<form
@@ -89,6 +90,7 @@ templ ChecklistComponent(cardID int64, items []models.ChecklistItem) {
 			hx-on::after-request="this.reset()"
 			class="flex gap-2"
 		>
+			<input type="hidden" name="board_id" value={ fmt.Sprintf("%d", boardID) }/>
 			<input
 				type="text"
 				name="content"
@@ -130,7 +132,7 @@ templ checklistProgressBar(items []models.ChecklistItem) {
 	</div>
 }
 
-templ checklistItemComponent(item *models.ChecklistItem) {
+templ checklistItemComponent(item *models.ChecklistItem, boardID int64) {
 	<div
 		class="flex items-center gap-2 p-2 bg-dark-700 rounded checklist-item border border-dark-600"
 		data-item-id={ fmt.Sprintf("%d", item.ID) }
@@ -142,6 +144,7 @@ templ checklistItemComponent(item *models.ChecklistItem) {
 			hx-trigger="change"
 			class="flex items-center gap-2 flex-1"
 		>
+			<input type="hidden" name="board_id" value={ fmt.Sprintf("%d", boardID) }/>
 			if item.IsCompleted {
 				<input
 					type="checkbox"
@@ -163,7 +166,7 @@ templ checklistItemComponent(item *models.ChecklistItem) {
 		</form>
 		<button
 			class="text-red-400 hover:text-red-300"
-			hx-delete={ fmt.Sprintf("/checklist/%d", item.ID) }
+			hx-delete={ fmt.Sprintf("/checklist/%d?board_id=%d", item.ID, boardID) }
 			hx-target="#checklist-section"
 			hx-swap="innerHTML"
 		>
@@ -174,7 +177,7 @@ templ checklistItemComponent(item *models.ChecklistItem) {
 	</div>
 }
 
-templ CommentsList(cardID int64, comments []models.Comment) {
+templ CommentsList(cardID int64, comments []models.Comment, boardID int64) {
 	<div>
 		<h3 class="text-sm font-medium text-dark-300 mb-2">Comments</h3>
 		<form
@@ -184,6 +187,7 @@ templ CommentsList(cardID int64, comments []models.Comment) {
 			hx-on::after-request="this.reset()"
 			class="mb-3"
 		>
+			<input type="hidden" name="board_id" value={ fmt.Sprintf("%d", boardID) }/>
 			<textarea
 				name="content"
 				rows="2"
@@ -203,20 +207,20 @@ templ CommentsList(cardID int64, comments []models.Comment) {
 				<p class="text-dark-400 text-sm">No comments yet.</p>
 			} else {
 				for _, comment := range comments {
-					@commentItemComponent(&comment)
+					@commentItemComponent(&comment, boardID)
 				}
 			}
 		</div>
 	</div>
 }
 
-templ commentItemComponent(comment *models.Comment) {
+templ commentItemComponent(comment *models.Comment, boardID int64) {
 	<div class="p-3 bg-dark-700 rounded-lg border border-dark-600">
 		<div class="flex justify-between items-start">
 			<p class="text-sm text-dark-200 whitespace-pre-wrap">{ comment.Content }</p>
 			<button
 				class="text-red-400 hover:text-red-300 ml-2 flex-shrink-0"
-				hx-delete={ fmt.Sprintf("/comments/%d", comment.ID) }
+				hx-delete={ fmt.Sprintf("/comments/%d?board_id=%d", comment.ID, boardID) }
 				hx-target="#comments-section"
 				hx-swap="innerHTML"
 				hx-confirm="Delete this comment?"

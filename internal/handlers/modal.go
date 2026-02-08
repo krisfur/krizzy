@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"strconv"
 
-	"krizzy/internal/repository"
 	"krizzy/internal/services"
 	"krizzy/templates"
 
@@ -12,15 +11,11 @@ import (
 )
 
 type ModalHandler struct {
-	service    *services.KanbanService
-	personRepo repository.PersonRepository
+	bm *services.BoardManager
 }
 
-func NewModalHandler(service *services.KanbanService, personRepo repository.PersonRepository) *ModalHandler {
-	return &ModalHandler{
-		service:    service,
-		personRepo: personRepo,
-	}
+func NewModalHandler(bm *services.BoardManager) *ModalHandler {
+	return &ModalHandler{bm: bm}
 }
 
 func (h *ModalHandler) GetCardModal(c echo.Context) error {
@@ -29,15 +24,22 @@ func (h *ModalHandler) GetCardModal(c echo.Context) error {
 		return c.String(http.StatusBadRequest, "Invalid card ID")
 	}
 
-	card, err := h.service.GetCardWithDetails(id)
+	boardID, _ := strconv.ParseInt(c.QueryParam("board_id"), 10, 64)
+
+	svc, err := h.bm.GetServiceForBoard(boardID)
+	if err != nil {
+		return c.String(http.StatusNotFound, "Board not found")
+	}
+
+	card, err := svc.GetCardWithDetails(id)
 	if err != nil {
 		return c.String(http.StatusNotFound, "Card not found")
 	}
 
-	people, err := h.personRepo.GetAll()
+	people, err := svc.PersonRepo.GetByBoardID(boardID)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to load people")
 	}
 
-	return templates.CardModal(card, people).Render(c.Request().Context(), c.Response().Writer)
+	return templates.CardModal(card, people, boardID).Render(c.Request().Context(), c.Response().Writer)
 }

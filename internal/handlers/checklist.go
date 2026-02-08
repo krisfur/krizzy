@@ -5,22 +5,23 @@ import (
 	"strconv"
 
 	"krizzy/internal/models"
-	"krizzy/internal/repository"
+	"krizzy/internal/services"
 	"krizzy/templates"
 
 	"github.com/labstack/echo/v4"
 )
 
 type ChecklistHandler struct {
-	checklistRepo repository.ChecklistRepository
+	bm *services.BoardManager
 }
 
-func NewChecklistHandler(checklistRepo repository.ChecklistRepository) *ChecklistHandler {
-	return &ChecklistHandler{checklistRepo: checklistRepo}
+func NewChecklistHandler(bm *services.BoardManager) *ChecklistHandler {
+	return &ChecklistHandler{bm: bm}
 }
 
 type CreateChecklistItemRequest struct {
 	Content string `form:"content"`
+	BoardID int64  `form:"board_id"`
 }
 
 func (h *ChecklistHandler) CreateItem(c echo.Context) error {
@@ -38,26 +39,32 @@ func (h *ChecklistHandler) CreateItem(c echo.Context) error {
 		return c.String(http.StatusBadRequest, "Content is required")
 	}
 
+	svc, err := h.bm.GetServiceForBoard(req.BoardID)
+	if err != nil {
+		return c.String(http.StatusNotFound, "Board not found")
+	}
+
 	item := &models.ChecklistItem{
 		CardID:  cardID,
 		Content: req.Content,
 	}
 
-	if err := h.checklistRepo.Create(item); err != nil {
+	if err := svc.ChecklistRepo.Create(item); err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to create checklist item")
 	}
 
-	items, err := h.checklistRepo.GetByCardID(cardID)
+	items, err := svc.ChecklistRepo.GetByCardID(cardID)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to load checklist")
 	}
 
-	return templates.ChecklistComponent(cardID, items).Render(c.Request().Context(), c.Response().Writer)
+	return templates.ChecklistComponent(cardID, items, req.BoardID).Render(c.Request().Context(), c.Response().Writer)
 }
 
 type UpdateChecklistItemRequest struct {
 	Content     string `form:"content"`
 	IsCompleted bool   `form:"is_completed"`
+	BoardID     int64  `form:"board_id"`
 }
 
 func (h *ChecklistHandler) UpdateItem(c echo.Context) error {
@@ -71,7 +78,12 @@ func (h *ChecklistHandler) UpdateItem(c echo.Context) error {
 		return c.String(http.StatusBadRequest, "Invalid request")
 	}
 
-	item, err := h.checklistRepo.GetByID(id)
+	svc, err := h.bm.GetServiceForBoard(req.BoardID)
+	if err != nil {
+		return c.String(http.StatusNotFound, "Board not found")
+	}
+
+	item, err := svc.ChecklistRepo.GetByID(id)
 	if err != nil {
 		return c.String(http.StatusNotFound, "Item not found")
 	}
@@ -81,16 +93,16 @@ func (h *ChecklistHandler) UpdateItem(c echo.Context) error {
 	}
 	item.IsCompleted = req.IsCompleted
 
-	if err := h.checklistRepo.Update(item); err != nil {
+	if err := svc.ChecklistRepo.Update(item); err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to update item")
 	}
 
-	items, err := h.checklistRepo.GetByCardID(item.CardID)
+	items, err := svc.ChecklistRepo.GetByCardID(item.CardID)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to load checklist")
 	}
 
-	return templates.ChecklistComponent(item.CardID, items).Render(c.Request().Context(), c.Response().Writer)
+	return templates.ChecklistComponent(item.CardID, items, req.BoardID).Render(c.Request().Context(), c.Response().Writer)
 }
 
 func (h *ChecklistHandler) DeleteItem(c echo.Context) error {
@@ -99,27 +111,35 @@ func (h *ChecklistHandler) DeleteItem(c echo.Context) error {
 		return c.String(http.StatusBadRequest, "Invalid item ID")
 	}
 
-	item, err := h.checklistRepo.GetByID(id)
+	boardID, _ := strconv.ParseInt(c.QueryParam("board_id"), 10, 64)
+
+	svc, err := h.bm.GetServiceForBoard(boardID)
+	if err != nil {
+		return c.String(http.StatusNotFound, "Board not found")
+	}
+
+	item, err := svc.ChecklistRepo.GetByID(id)
 	if err != nil {
 		return c.String(http.StatusNotFound, "Item not found")
 	}
 
 	cardID := item.CardID
 
-	if err := h.checklistRepo.Delete(id); err != nil {
+	if err := svc.ChecklistRepo.Delete(id); err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to delete item")
 	}
 
-	items, err := h.checklistRepo.GetByCardID(cardID)
+	items, err := svc.ChecklistRepo.GetByCardID(cardID)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to load checklist")
 	}
 
-	return templates.ChecklistComponent(cardID, items).Render(c.Request().Context(), c.Response().Writer)
+	return templates.ChecklistComponent(cardID, items, boardID).Render(c.Request().Context(), c.Response().Writer)
 }
 
 type ReorderChecklistRequest struct {
 	ItemIDs []int64 `form:"item_ids"`
+	BoardID int64   `form:"board_id"`
 }
 
 func (h *ChecklistHandler) ReorderItems(c echo.Context) error {
@@ -133,7 +153,12 @@ func (h *ChecklistHandler) ReorderItems(c echo.Context) error {
 		return c.String(http.StatusBadRequest, "Invalid request")
 	}
 
-	if err := h.checklistRepo.Reorder(cardID, req.ItemIDs); err != nil {
+	svc, err := h.bm.GetServiceForBoard(req.BoardID)
+	if err != nil {
+		return c.String(http.StatusNotFound, "Board not found")
+	}
+
+	if err := svc.ChecklistRepo.Reorder(cardID, req.ItemIDs); err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to reorder checklist")
 	}
 

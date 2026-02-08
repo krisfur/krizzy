@@ -1,0 +1,185 @@
+package templates
+
+import (
+	"krizzy/internal/models"
+	"fmt"
+)
+
+templ BoardsPage(boards []models.Board, connections []models.PgConnection) {
+	@Layout("Krizzy - Boards") {
+		<div class="p-4 max-w-4xl mx-auto">
+			<header class="mb-6">
+				<h1 class="text-2xl font-bold text-dark-100">Krizzy Boards</h1>
+			</header>
+			<div id="boards-list">
+				@BoardsList(boards, connections)
+			</div>
+			<!-- Connections Modal -->
+			<div
+				id="conn-modal-backdrop"
+				class="hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50"
+				onclick="if(event.target === this) this.classList.add('hidden')"
+			>
+				<div id="conn-modal-content" class="bg-dark-800 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto border border-dark-600">
+					<!-- Loaded via HTMX -->
+				</div>
+			</div>
+		</div>
+	}
+}
+
+templ BoardsList(boards []models.Board, connections []models.PgConnection) {
+	<!-- Create Board Form -->
+	<div class="mb-6 bg-dark-800 rounded-lg p-4 border border-dark-600">
+		<h2 class="text-lg font-semibold text-dark-200 mb-3">Create New Board</h2>
+		<form
+			hx-post="/boards"
+			hx-target="#boards-list"
+			hx-swap="innerHTML"
+			hx-on::after-request="this.reset()"
+		>
+			<div class="flex flex-col gap-3">
+				<input
+					type="text"
+					name="name"
+					placeholder="Board name..."
+					class="w-full px-3 py-2 rounded border border-dark-600 bg-dark-700 text-dark-100 placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-go-blue focus:border-transparent"
+					required
+				/>
+				<div class="flex gap-3 items-end">
+					<div class="flex-1">
+						<label class="block text-sm text-dark-300 mb-1">Database Type</label>
+						<select
+							name="db_type"
+							class="w-full px-3 py-2 rounded border border-dark-600 bg-dark-700 text-dark-100 focus:outline-none focus:ring-2 focus:ring-go-blue focus:border-transparent"
+							onchange="document.getElementById('pg-fields').style.display = this.value === 'postgres' ? 'block' : 'none'"
+						>
+							<option value="local">Local (SQLite)</option>
+							<option value="postgres">PostgreSQL</option>
+						</select>
+					</div>
+					<button
+						type="submit"
+						class="px-4 py-2 bg-go-blue text-white rounded hover:bg-go-blue-dark font-medium"
+					>
+						Create Board
+					</button>
+				</div>
+				<div id="pg-fields" style="display: none;">
+					<div class="grid grid-cols-2 gap-3">
+						<div>
+							<label class="block text-sm text-dark-300 mb-1">Connection</label>
+							<select
+								name="pg_connection_id"
+								class="w-full px-3 py-2 rounded border border-dark-600 bg-dark-700 text-dark-100 focus:outline-none focus:ring-2 focus:ring-go-blue focus:border-transparent"
+							>
+								if len(connections) == 0 {
+									<option value="">No connections - add one first</option>
+								} else {
+									for _, conn := range connections {
+										<option value={ fmt.Sprintf("%d", conn.ID) }>{ conn.Name } ({ conn.Host }:{ fmt.Sprintf("%d", conn.Port) })</option>
+									}
+								}
+							</select>
+						</div>
+						<div>
+							<label class="block text-sm text-dark-300 mb-1">Database Name</label>
+							<input
+								type="text"
+								name="pg_database_name"
+								placeholder="my_board_db"
+								class="w-full px-3 py-2 rounded border border-dark-600 bg-dark-700 text-dark-100 placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-go-blue focus:border-transparent"
+							/>
+						</div>
+					</div>
+					<button
+						type="button"
+						class="mt-2 px-3 py-1 text-xs bg-dark-600 text-dark-300 rounded hover:bg-dark-500 hover:text-dark-100"
+						hx-get="/connections"
+						hx-target="#conn-modal-content"
+						hx-swap="innerHTML"
+						onclick="document.getElementById('conn-modal-backdrop').classList.remove('hidden')"
+					>
+						Manage Connections
+					</button>
+				</div>
+			</div>
+		</form>
+	</div>
+
+	<!-- Board List -->
+	<div class="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+		if len(boards) == 0 {
+			<p class="text-dark-400 col-span-full text-center py-8">No boards yet. Create one above!</p>
+		}
+		for _, board := range boards {
+			@BoardCard(&board)
+		}
+	</div>
+}
+
+templ BoardCard(board *models.Board) {
+	<div class="bg-dark-800 rounded-lg p-4 border border-dark-600 hover:border-dark-500 transition-colors" id={ fmt.Sprintf("board-card-%d", board.ID) }>
+		<div class="flex items-start justify-between mb-2">
+			<a
+				href={ templ.SafeURL(fmt.Sprintf("/boards/%d", board.ID)) }
+				class="text-lg font-semibold text-dark-100 hover:text-go-blue transition-colors"
+			>
+				{ board.Name }
+			</a>
+			<div class="flex gap-1">
+				<button
+					class="p-1 hover:bg-dark-600 rounded text-dark-400 hover:text-dark-200"
+					data-board-id={ fmt.Sprintf("%d", board.ID) }
+					data-board-name={ board.Name }
+					onclick="startRenameBoard(this.dataset.boardId, this.dataset.boardName)"
+					title="Rename"
+				>
+					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+					</svg>
+				</button>
+				<button
+					class="p-1 hover:bg-dark-600 rounded text-dark-400 hover:text-red-400"
+					hx-delete={ fmt.Sprintf("/boards/%d", board.ID) }
+					hx-target="#boards-list"
+					hx-swap="innerHTML"
+					hx-confirm={ fmt.Sprintf("Delete board '%s'? This cannot be undone.", board.Name) }
+					title="Delete"
+				>
+					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+					</svg>
+				</button>
+			</div>
+		</div>
+		<div class="flex items-center gap-2 text-xs text-dark-400">
+			if board.DbType == "postgres" {
+				<span class="bg-blue-900 text-blue-300 px-2 py-0.5 rounded">PostgreSQL</span>
+			} else {
+				<span class="bg-dark-700 text-dark-300 px-2 py-0.5 rounded">Local</span>
+			}
+			<span>Created { board.CreatedAt.Format("Jan 2, 2006") }</span>
+		</div>
+		<!-- Inline rename form (hidden by default) -->
+		<form
+			id={ fmt.Sprintf("rename-form-%d", board.ID) }
+			class="hidden mt-2"
+			hx-put={ fmt.Sprintf("/boards/%d", board.ID) }
+			hx-target="#boards-list"
+			hx-swap="innerHTML"
+		>
+			<div class="flex gap-2">
+				<input
+					type="text"
+					name="name"
+					id={ fmt.Sprintf("rename-input-%d", board.ID) }
+					class="flex-1 px-2 py-1 rounded border border-dark-600 bg-dark-700 text-dark-100 text-sm focus:outline-none focus:ring-2 focus:ring-go-blue focus:border-transparent"
+					value={ board.Name }
+				/>
+				<button type="submit" class="px-2 py-1 bg-go-blue text-white rounded text-sm hover:bg-go-blue-dark">Save</button>
+				<button type="button" class="px-2 py-1 bg-dark-600 text-dark-200 rounded text-sm hover:bg-dark-500" onclick={ templ.ComponentScript{Call: fmt.Sprintf("cancelRenameBoard(%d)", board.ID)} }>Cancel</button>
+			</div>
+		</form>
+	</div>
+}
