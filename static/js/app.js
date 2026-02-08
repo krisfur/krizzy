@@ -1,3 +1,11 @@
+// Show HTMX error responses as alerts
+document.addEventListener('htmx:responseError', function(event) {
+    var xhr = event.detail.xhr;
+    if (xhr && xhr.responseText) {
+        alert(xhr.responseText);
+    }
+});
+
 // Initialize SortableJS for drag and drop functionality
 document.addEventListener('DOMContentLoaded', function() {
     initializeSortable();
@@ -116,6 +124,12 @@ function closeModalAndRefresh(boardId) {
     if (boardId) {
         htmx.ajax('GET', `/boards/${boardId}`, {target: '#board-content', swap: 'innerHTML'});
     }
+}
+
+// Close connections modal and refresh the boards list (to update connection dropdown)
+function closeConnModal() {
+    document.getElementById('conn-modal-backdrop').classList.add('hidden');
+    htmx.ajax('GET', '/', {target: '#boards-list', swap: 'innerHTML'});
 }
 
 // Board rename functions

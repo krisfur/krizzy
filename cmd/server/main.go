@@ -1,9 +1,11 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"krizzy/internal/config"
 	"krizzy/internal/database"
@@ -120,6 +122,10 @@ func main() {
 	e.DELETE("/connections/:id", connectionHandler.DeleteConnection)
 
 	// Start server
-	log.Printf("Starting Krizzy on %s", cfg.ServerAddress)
+	addr := cfg.ServerAddress
+	if strings.HasPrefix(addr, ":") {
+		addr = fmt.Sprintf("http://localhost%s", addr)
+	}
+	log.Printf("Starting Krizzy on %s", addr)
 	log.Fatal(e.Start(cfg.ServerAddress))
 }
