@@ -9,6 +9,13 @@ document.addEventListener('htmx:responseError', function(event) {
 // Initialize SortableJS for drag and drop functionality
 document.addEventListener('DOMContentLoaded', function() {
     initializeSortable();
+
+    // Restore pg-fields visibility if browser restored the dropdown value
+    var dbTypeSelect = document.querySelector('select[name="db_type"]');
+    var pgFields = document.getElementById('pg-fields');
+    if (dbTypeSelect && pgFields) {
+        pgFields.style.display = dbTypeSelect.value === 'postgres' ? 'block' : 'none';
+    }
 });
 
 // Re-initialize after HTMX swaps content

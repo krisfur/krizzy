@@ -2,6 +2,7 @@
 
 Lightweight Kanban board built with Go, Echo, Templ, Datastar, and SQLite.
 
+![boards](./boards.png)
 ![board](./board.png)
 ![modal](./modal.png)
 
