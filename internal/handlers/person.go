@@ -13,11 +13,12 @@ import (
 )
 
 type PersonHandler struct {
-	bm *services.BoardManager
+	bm  *services.BoardManager
+	hub *services.BoardEventHub
 }
 
-func NewPersonHandler(bm *services.BoardManager) *PersonHandler {
-	return &PersonHandler{bm: bm}
+func NewPersonHandler(bm *services.BoardManager, hub *services.BoardEventHub) *PersonHandler {
+	return &PersonHandler{bm: bm, hub: hub}
 }
 
 type CreatePersonRequest struct {
@@ -45,6 +46,12 @@ func (h *PersonHandler) CreatePerson(c echo.Context) error {
 	if err := svc.PersonRepo.Create(person); err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to create person")
 	}
+
+	publishBoardEvent(h.hub, services.BoardEvent{
+		Type:     "people.updated",
+		BoardID:  req.BoardID,
+		ClientID: requestClientID(c),
+	})
 
 	people, err := svc.PersonRepo.GetByBoardID(req.BoardID)
 	if err != nil {
@@ -74,6 +81,12 @@ func (h *PersonHandler) DeletePerson(c echo.Context) error {
 	if err := svc.PersonRepo.Delete(id); err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to delete person")
 	}
+
+	publishBoardEvent(h.hub, services.BoardEvent{
+		Type:     "people.updated",
+		BoardID:  boardID,
+		ClientID: requestClientID(c),
+	})
 
 	people, err := svc.PersonRepo.GetByBoardID(boardID)
 	if err != nil {

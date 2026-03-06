@@ -12,11 +12,12 @@ import (
 )
 
 type CommentHandler struct {
-	bm *services.BoardManager
+	bm  *services.BoardManager
+	hub *services.BoardEventHub
 }
 
-func NewCommentHandler(bm *services.BoardManager) *CommentHandler {
-	return &CommentHandler{bm: bm}
+func NewCommentHandler(bm *services.BoardManager, hub *services.BoardEventHub) *CommentHandler {
+	return &CommentHandler{bm: bm, hub: hub}
 }
 
 type CreateCommentRequest struct {
@@ -53,6 +54,17 @@ func (h *CommentHandler) CreateComment(c echo.Context) error {
 		return c.String(http.StatusInternalServerError, "Failed to create comment")
 	}
 
+	card, err := svc.CardRepo.GetByID(cardID)
+	if err == nil {
+		publishBoardEvent(h.hub, services.BoardEvent{
+			Type:     "comment.updated",
+			BoardID:  req.BoardID,
+			CardID:   cardID,
+			ColumnID: card.ColumnID,
+			ClientID: requestClientID(c),
+		})
+	}
+
 	comments, err := svc.CommentRepo.GetByCardID(cardID)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to load comments")
@@ -83,6 +95,17 @@ func (h *CommentHandler) DeleteComment(c echo.Context) error {
 
 	if err := svc.CommentRepo.Delete(id); err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to delete comment")
+	}
+
+	card, err := svc.CardRepo.GetByID(cardID)
+	if err == nil {
+		publishBoardEvent(h.hub, services.BoardEvent{
+			Type:     "comment.updated",
+			BoardID:  boardID,
+			CardID:   cardID,
+			ColumnID: card.ColumnID,
+			ClientID: requestClientID(c),
+		})
 	}
 
 	comments, err := svc.CommentRepo.GetByCardID(cardID)

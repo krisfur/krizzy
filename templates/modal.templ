@@ -6,7 +6,7 @@ import (
 )
 
 templ CardModal(card *models.Card, people []models.Person, boardID int64) {
-	<div class="p-6" onclick="event.stopPropagation()">
+	<div class="p-6" data-card-id={ fmt.Sprintf("%d", card.ID) } data-board-id={ fmt.Sprintf("%d", boardID) } onclick="event.stopPropagation()">
 		<div class="flex justify-between items-start mb-4">
 			<h2 class="text-xl font-bold text-dark-100">{ card.Title }</h2>
 			<button
@@ -101,7 +101,7 @@ templ CardModal(card *models.Card, people []models.Person, boardID int64) {
 }
 
 templ PeopleModal(people []models.Person, boardID int64) {
-	<div class="p-6" onclick="event.stopPropagation()">
+	<div class="p-6" data-board-id={ fmt.Sprintf("%d", boardID) } onclick="event.stopPropagation()">
 		<div class="flex justify-between items-start mb-4">
 			<h2 class="text-xl font-bold text-dark-100">Manage People</h2>
 			<button

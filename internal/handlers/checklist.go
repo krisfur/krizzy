@@ -12,11 +12,12 @@ import (
 )
 
 type ChecklistHandler struct {
-	bm *services.BoardManager
+	bm  *services.BoardManager
+	hub *services.BoardEventHub
 }
 
-func NewChecklistHandler(bm *services.BoardManager) *ChecklistHandler {
-	return &ChecklistHandler{bm: bm}
+func NewChecklistHandler(bm *services.BoardManager, hub *services.BoardEventHub) *ChecklistHandler {
+	return &ChecklistHandler{bm: bm, hub: hub}
 }
 
 type CreateChecklistItemRequest struct {
@@ -51,6 +52,17 @@ func (h *ChecklistHandler) CreateItem(c echo.Context) error {
 
 	if err := svc.ChecklistRepo.Create(item); err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to create checklist item")
+	}
+
+	card, err := svc.CardRepo.GetByID(cardID)
+	if err == nil {
+		publishBoardEvent(h.hub, services.BoardEvent{
+			Type:     "checklist.updated",
+			BoardID:  req.BoardID,
+			CardID:   cardID,
+			ColumnID: card.ColumnID,
+			ClientID: requestClientID(c),
+		})
 	}
 
 	items, err := svc.ChecklistRepo.GetByCardID(cardID)
@@ -97,6 +109,17 @@ func (h *ChecklistHandler) UpdateItem(c echo.Context) error {
 		return c.String(http.StatusInternalServerError, "Failed to update item")
 	}
 
+	card, err := svc.CardRepo.GetByID(item.CardID)
+	if err == nil {
+		publishBoardEvent(h.hub, services.BoardEvent{
+			Type:     "checklist.updated",
+			BoardID:  req.BoardID,
+			CardID:   item.CardID,
+			ColumnID: card.ColumnID,
+			ClientID: requestClientID(c),
+		})
+	}
+
 	items, err := svc.ChecklistRepo.GetByCardID(item.CardID)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to load checklist")
@@ -127,6 +150,17 @@ func (h *ChecklistHandler) DeleteItem(c echo.Context) error {
 
 	if err := svc.ChecklistRepo.Delete(id); err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to delete item")
+	}
+
+	card, err := svc.CardRepo.GetByID(cardID)
+	if err == nil {
+		publishBoardEvent(h.hub, services.BoardEvent{
+			Type:     "checklist.updated",
+			BoardID:  boardID,
+			CardID:   cardID,
+			ColumnID: card.ColumnID,
+			ClientID: requestClientID(c),
+		})
 	}
 
 	items, err := svc.ChecklistRepo.GetByCardID(cardID)
@@ -160,6 +194,17 @@ func (h *ChecklistHandler) ReorderItems(c echo.Context) error {
 
 	if err := svc.ChecklistRepo.Reorder(cardID, req.ItemIDs); err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to reorder checklist")
+	}
+
+	card, err := svc.CardRepo.GetByID(cardID)
+	if err == nil {
+		publishBoardEvent(h.hub, services.BoardEvent{
+			Type:     "checklist.updated",
+			BoardID:  req.BoardID,
+			CardID:   cardID,
+			ColumnID: card.ColumnID,
+			ClientID: requestClientID(c),
+		})
 	}
 
 	return c.NoContent(http.StatusOK)

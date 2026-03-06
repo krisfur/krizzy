@@ -87,8 +87,6 @@ func (s *KanbanService) MoveCard(cardID int64, newColumnID int64, newPosition in
 	if column.IsDoneColumn {
 		now := time.Now()
 		card.CompletedAt = &now
-	} else {
-		card.CompletedAt = nil
 	}
 
 	// Update the card's completed_at

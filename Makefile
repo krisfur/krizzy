@@ -1,4 +1,4 @@
-.PHONY: build run templ css dev clean install-tools pg-up pg-down pg-reset
+.PHONY: build run stop templ css dev clean install-tools pg-up pg-down pg-reset
 
 # Install required tools
 install-tools:
@@ -19,6 +19,10 @@ build: templ
 # Run the application
 run: templ
 	go run ./cmd/server
+
+# Stop any server listening on port 8080
+stop:
+	-pids=$$(lsof -ti :8080); if [ -n "$$pids" ]; then kill $$pids; fi
 
 # Development mode - rebuild and run
 dev: templ

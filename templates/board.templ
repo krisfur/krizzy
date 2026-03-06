@@ -49,6 +49,11 @@ templ BoardPage(board *models.Board) {
 }
 
 templ BoardContent(board *models.Board) {
+	@ColumnsContainer(board)
+	<div id="board-fragments" class="hidden"></div>
+}
+
+templ ColumnsContainer(board *models.Board) {
 	<div id="columns-container" class="flex gap-4 overflow-x-auto pb-4 items-start" data-board-id={ fmt.Sprintf("%d", board.ID) }>
 		for _, column := range board.Columns {
 			@ColumnComponent(&column, board.ID)
