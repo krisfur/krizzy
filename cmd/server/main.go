@@ -64,6 +64,9 @@ func main() {
 
 	// Static files
 	e.Static("/static", "static")
+	e.GET("/healthz", func(c echo.Context) error {
+		return c.NoContent(http.StatusOK)
+	})
 
 	// Board list routes
 	e.GET("/", boardHandler.ListBoards)

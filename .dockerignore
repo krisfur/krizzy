@@ -1,0 +1,16 @@
+.git
+.gitignore
+.idea
+.vscode
+bin
+krizzy.db
+*.db
+*.db-journal
+*.swp
+Dockerfile*
+compose*.yml
+compose*.yaml
+README.md
+boards.png
+board.png
+modal.png
