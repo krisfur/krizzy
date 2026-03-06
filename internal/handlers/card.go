@@ -13,11 +13,12 @@ import (
 )
 
 type CardHandler struct {
-	bm *services.BoardManager
+	bm  *services.BoardManager
+	hub *services.BoardEventHub
 }
 
-func NewCardHandler(bm *services.BoardManager) *CardHandler {
-	return &CardHandler{bm: bm}
+func NewCardHandler(bm *services.BoardManager, hub *services.BoardEventHub) *CardHandler {
+	return &CardHandler{bm: bm, hub: hub}
 }
 
 type CreateCardRequest struct {
@@ -47,6 +48,14 @@ func (h *CardHandler) CreateCard(c echo.Context) error {
 	if err := svc.CardRepo.Create(card); err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to create card")
 	}
+
+	publishBoardEvent(h.hub, services.BoardEvent{
+		Type:     "card.created",
+		BoardID:  req.BoardID,
+		CardID:   card.ID,
+		ColumnID: req.ColumnID,
+		ClientID: requestClientID(c),
+	})
 
 	board, err := svc.GetBoardWithData(req.BoardID)
 	if err != nil {
@@ -90,6 +99,14 @@ func (h *CardHandler) UpdateCard(c echo.Context) error {
 		return c.String(http.StatusInternalServerError, "Failed to update card")
 	}
 
+	publishBoardEvent(h.hub, services.BoardEvent{
+		Type:     "card.updated",
+		BoardID:  req.BoardID,
+		CardID:   card.ID,
+		ColumnID: card.ColumnID,
+		ClientID: requestClientID(c),
+	})
+
 	cardWithDetails, err := svc.GetCardWithDetails(id)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to load card")
@@ -116,9 +133,22 @@ func (h *CardHandler) DeleteCard(c echo.Context) error {
 		return c.String(http.StatusNotFound, "Board not found")
 	}
 
+	card, err := svc.CardRepo.GetByID(id)
+	if err != nil {
+		return c.String(http.StatusNotFound, "Card not found")
+	}
+
 	if err := svc.CardRepo.Delete(id); err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to delete card")
 	}
+
+	publishBoardEvent(h.hub, services.BoardEvent{
+		Type:     "card.deleted",
+		BoardID:  boardID,
+		CardID:   id,
+		ColumnID: card.ColumnID,
+		ClientID: requestClientID(c),
+	})
 
 	board, err := svc.GetBoardWithData(boardID)
 	if err != nil {
@@ -150,9 +180,23 @@ func (h *CardHandler) MoveCard(c echo.Context) error {
 		return c.String(http.StatusNotFound, "Board not found")
 	}
 
+	card, err := svc.CardRepo.GetByID(id)
+	if err != nil {
+		return c.String(http.StatusNotFound, "Card not found")
+	}
+
 	if err := svc.MoveCard(id, req.ColumnID, req.Position); err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to move card")
 	}
+
+	publishBoardEvent(h.hub, services.BoardEvent{
+		Type:         "card.moved",
+		BoardID:      req.BoardID,
+		CardID:       id,
+		FromColumnID: card.ColumnID,
+		ToColumnID:   req.ColumnID,
+		ClientID:     requestClientID(c),
+	})
 
 	return c.NoContent(http.StatusOK)
 }
@@ -181,6 +225,19 @@ func (h *CardHandler) UpdateAssignees(c echo.Context) error {
 	if err := svc.PersonRepo.SetCardAssignees(id, req.PersonIDs); err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to update assignees")
 	}
+
+	card, err := svc.CardRepo.GetByID(id)
+	if err != nil {
+		return c.String(http.StatusNotFound, "Card not found")
+	}
+
+	publishBoardEvent(h.hub, services.BoardEvent{
+		Type:     "card.updated",
+		BoardID:  req.BoardID,
+		CardID:   id,
+		ColumnID: card.ColumnID,
+		ClientID: requestClientID(c),
+	})
 
 	cardWithDetails, err := svc.GetCardWithDetails(id)
 	if err != nil {

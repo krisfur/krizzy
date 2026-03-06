@@ -41,16 +41,18 @@ func main() {
 	// Initialize BoardManager
 	bm := services.NewBoardManager(db, boardRepo, pgConnRepo)
 	defer bm.Close()
+	eventHub := services.NewBoardEventHub()
 
 	// Initialize handlers
 	boardHandler := handlers.NewBoardHandler(bm)
-	columnHandler := handlers.NewColumnHandler(bm)
-	cardHandler := handlers.NewCardHandler(bm)
+	columnHandler := handlers.NewColumnHandler(bm, eventHub)
+	cardHandler := handlers.NewCardHandler(bm, eventHub)
 	modalHandler := handlers.NewModalHandler(bm)
-	personHandler := handlers.NewPersonHandler(bm)
-	commentHandler := handlers.NewCommentHandler(bm)
-	checklistHandler := handlers.NewChecklistHandler(bm)
+	personHandler := handlers.NewPersonHandler(bm, eventHub)
+	commentHandler := handlers.NewCommentHandler(bm, eventHub)
+	checklistHandler := handlers.NewChecklistHandler(bm, eventHub)
 	connectionHandler := handlers.NewConnectionHandler(bm)
+	realtimeHandler := handlers.NewRealtimeHandler(bm, eventHub)
 
 	// Initialize Echo
 	e := echo.New()
@@ -67,6 +69,10 @@ func main() {
 	e.GET("/", boardHandler.ListBoards)
 	e.POST("/boards", boardHandler.CreateBoard)
 	e.GET("/boards/:id", boardHandler.GetBoard)
+	e.GET("/boards/:id/events", realtimeHandler.StreamBoardEvents)
+	e.GET("/boards/:id/columns", realtimeHandler.GetColumnsContainer)
+	e.GET("/boards/:id/columns/:columnId", realtimeHandler.GetColumn)
+	e.GET("/boards/:id/cards/:cardId", realtimeHandler.GetCard)
 	e.PUT("/boards/:id", boardHandler.RenameBoard)
 	e.DELETE("/boards/:id", boardHandler.DeleteBoard)
 
