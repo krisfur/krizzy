@@ -1,4 +1,4 @@
-.PHONY: build run stop templ css dev clean install-tools pg-up pg-down pg-reset
+.PHONY: build run stop templ css dev clean install-tools docker-build docker-up docker-down docker-logs pg-up pg-down pg-reset
 
 # Install required tools
 install-tools:
@@ -23,6 +23,26 @@ run: templ
 # Stop any server listening on port 8080
 stop:
 	-pids=$$(lsof -ti :8080); if [ -n "$$pids" ]; then kill $$pids; fi
+
+docker-build:
+	docker build -t krizzy .
+
+docker-up:
+	-docker rm -f krizzy
+	docker run -d \
+		--name krizzy \
+		-p 8080:8080 \
+		-e SERVER_ADDRESS=:8080 \
+		-e DATABASE_PATH=/data/krizzy.db \
+		-v krizzy-data:/data \
+		--restart unless-stopped \
+		krizzy
+
+docker-down:
+	-docker rm -f krizzy
+
+docker-logs:
+	docker logs -f krizzy
 
 # Development mode - rebuild and run
 dev: templ
