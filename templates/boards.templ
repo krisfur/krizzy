@@ -107,6 +107,91 @@ templ BoardsList(boards []models.Board, connections []models.PgConnection) {
 		</form>
 	</div>
 
+	<div class="mb-6 bg-dark-800 rounded-lg p-4 border border-dark-600">
+		<h2 class="text-lg font-semibold text-dark-200 mb-2">Import Trello JSON</h2>
+		<p class="text-sm text-dark-400 mb-3">Imports only non-archive lists, skips attachments/images, and merges multiple card checklists into one.</p>
+		<form
+			hx-post="/boards/import-trello"
+			hx-encoding="multipart/form-data"
+			hx-target="#boards-list"
+			hx-swap="innerHTML"
+			hx-on::after-request="this.reset()"
+		>
+			<div class="flex flex-col gap-3">
+				<input
+					type="file"
+					name="trello_file"
+					accept="application/json,.json"
+					class="w-full px-3 py-2 rounded border border-dark-600 bg-dark-700 text-dark-200 file:mr-3 file:border-0 file:bg-go-blue file:px-3 file:py-1.5 file:text-white file:rounded hover:file:bg-go-blue-dark"
+					required
+				/>
+				<input
+					type="text"
+					name="name"
+					placeholder="Optional board name override"
+					class="w-full px-3 py-2 rounded border border-dark-600 bg-dark-700 text-dark-100 placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-go-blue focus:border-transparent"
+				/>
+				<div class="flex gap-3 items-end">
+					<div class="flex-1">
+						<label class="block text-sm text-dark-300 mb-1">Database Type</label>
+						<select
+							name="db_type"
+							class="w-full px-3 py-2 rounded border border-dark-600 bg-dark-700 text-dark-100 focus:outline-none focus:ring-2 focus:ring-go-blue focus:border-transparent"
+							onchange="document.getElementById('import-pg-fields').style.display = this.value === 'postgres' ? 'block' : 'none'"
+						>
+							<option value="local">Local (SQLite)</option>
+							<option value="postgres">PostgreSQL</option>
+						</select>
+					</div>
+					<button
+						type="submit"
+						class="px-4 py-2 bg-go-blue text-white rounded hover:bg-go-blue-dark font-medium"
+					>
+						Import Board
+					</button>
+				</div>
+				<div id="import-pg-fields" style="display: none;">
+					<div class="grid grid-cols-2 gap-3">
+						<div>
+							<label class="block text-sm text-dark-300 mb-1">Connection</label>
+							<select
+								name="pg_connection_id"
+								class="w-full px-3 py-2 rounded border border-dark-600 bg-dark-700 text-dark-100 focus:outline-none focus:ring-2 focus:ring-go-blue focus:border-transparent"
+							>
+								if len(connections) == 0 {
+									<option value="">No connections - add one first</option>
+								} else {
+									for _, conn := range connections {
+										<option value={ fmt.Sprintf("%d", conn.ID) }>{ conn.Name } ({ conn.Host }:{ fmt.Sprintf("%d", conn.Port) })</option>
+									}
+								}
+							</select>
+						</div>
+						<div>
+							<label class="block text-sm text-dark-300 mb-1">Database Name</label>
+							<input
+								type="text"
+								name="pg_database_name"
+								placeholder="trello_import_db"
+								class="w-full px-3 py-2 rounded border border-dark-600 bg-dark-700 text-dark-100 placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-go-blue focus:border-transparent"
+							/>
+						</div>
+					</div>
+					<button
+						type="button"
+						class="mt-2 px-3 py-1 text-xs bg-dark-600 text-dark-300 rounded hover:bg-dark-500 hover:text-dark-100"
+						hx-get="/connections"
+						hx-target="#conn-modal-content"
+						hx-swap="innerHTML"
+						onclick="document.getElementById('conn-modal-backdrop').classList.remove('hidden')"
+					>
+						Manage Connections
+					</button>
+				</div>
+			</div>
+		</form>
+	</div>
+
 	<!-- Board List -->
 	<div class="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
 		if len(boards) == 0 {

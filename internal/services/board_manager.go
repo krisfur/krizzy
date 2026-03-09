@@ -169,6 +169,14 @@ func (bm *BoardManager) createPostgresService(board *models.Board) (*KanbanServi
 }
 
 func (bm *BoardManager) CreateBoard(name, dbType string, pgConnectionID *int64, pgDatabaseName string) (*models.Board, error) {
+	return bm.createBoard(name, dbType, pgConnectionID, pgDatabaseName, true)
+}
+
+func (bm *BoardManager) CreateBoardWithoutDefaults(name, dbType string, pgConnectionID *int64, pgDatabaseName string) (*models.Board, error) {
+	return bm.createBoard(name, dbType, pgConnectionID, pgDatabaseName, false)
+}
+
+func (bm *BoardManager) createBoard(name, dbType string, pgConnectionID *int64, pgDatabaseName string, createDefaultColumns bool) (*models.Board, error) {
 	board := &models.Board{
 		Name:           name,
 		DbType:         dbType,
@@ -200,8 +208,11 @@ func (bm *BoardManager) CreateBoard(name, dbType string, pgConnectionID *int64, 
 		return nil, err
 	}
 
-	if err := svc.CreateDefaultColumns(board.ID); err != nil {
-		return nil, err
+	if createDefaultColumns {
+		if err := svc.CreateDefaultColumns(board.ID); err != nil {
+			bm.DeleteBoard(board.ID)
+			return nil, err
+		}
 	}
 
 	return board, nil
