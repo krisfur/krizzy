@@ -44,6 +44,15 @@ func (h *BoardHandler) ListBoards(c echo.Context) error {
 	return templates.BoardsPage(boards, connections).Render(c.Request().Context(), c.Response().Writer)
 }
 
+func (h *BoardHandler) GetImportModal(c echo.Context) error {
+	connections, err := h.bm.PgConnRepo().GetAll()
+	if err != nil {
+		return c.String(http.StatusInternalServerError, "Failed to load connections")
+	}
+
+	return templates.ImportBoardModal(connections).Render(c.Request().Context(), c.Response().Writer)
+}
+
 // GetBoard shows a specific board
 func (h *BoardHandler) GetBoard(c echo.Context) error {
 	boardID, err := strconv.ParseInt(c.Param("id"), 10, 64)

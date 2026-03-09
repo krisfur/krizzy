@@ -70,6 +70,7 @@ func main() {
 
 	// Board list routes
 	e.GET("/", boardHandler.ListBoards)
+	e.GET("/boards/import-modal", boardHandler.GetImportModal)
 	e.POST("/boards", boardHandler.CreateBoard)
 	e.POST("/boards/import-trello", boardHandler.ImportTrelloBoard)
 	e.GET("/boards/:id", boardHandler.GetBoard)

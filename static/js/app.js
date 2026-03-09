@@ -198,6 +198,13 @@ function initializeRealtime() {
 
 // Show HTMX error responses as alerts
 document.addEventListener('htmx:responseError', function(event) {
+    var elt = event.detail.elt;
+    if (elt && (elt.id === 'trello-import-form' || elt.closest('#trello-import-form'))) {
+        showImportFeedback('error', event.detail.xhr && event.detail.xhr.responseText ? event.detail.xhr.responseText : 'Import failed.');
+        setImportFormDisabled(false);
+        return;
+    }
+
     var xhr = event.detail.xhr;
     if (xhr && xhr.responseText) {
         alert(xhr.responseText);
@@ -213,18 +220,128 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeSortable();
     initializeRealtime();
 
-    var dbTypeSelect = document.querySelector('select[name="db_type"]');
-    var pgFields = document.getElementById('pg-fields');
-    if (dbTypeSelect && pgFields) {
-        pgFields.style.display = dbTypeSelect.value === 'postgres' ? 'block' : 'none';
-    }
+    toggleCreatePgFields();
+    toggleImportPgFields();
 });
 
 // Re-initialize after HTMX swaps content
 document.addEventListener('htmx:afterSwap', function() {
     initializeSortable();
     initializeRealtime();
+    toggleCreatePgFields();
+    toggleImportPgFields();
 });
+
+function toggleCreatePgFields() {
+    var dbTypeSelect = document.querySelector('#boards-list select[name="db_type"]');
+    var pgFields = document.getElementById('pg-fields');
+    if (dbTypeSelect && pgFields) {
+        pgFields.style.display = dbTypeSelect.value === 'postgres' ? 'block' : 'none';
+    }
+}
+
+function toggleImportPgFields() {
+    var dbTypeSelect = document.getElementById('import-db-type');
+    var pgFields = document.getElementById('import-pg-fields');
+    if (dbTypeSelect && pgFields) {
+        pgFields.style.display = dbTypeSelect.value === 'postgres' ? 'block' : 'none';
+    }
+}
+
+function openImportModal() {
+    var backdrop = document.getElementById('import-modal-backdrop');
+    if (!backdrop) {
+        return;
+    }
+
+    backdrop.classList.remove('hidden');
+    htmx.ajax('GET', '/boards/import-modal', {
+        target: '#import-modal-content',
+        swap: 'innerHTML'
+    });
+}
+
+function closeImportModal() {
+    var backdrop = document.getElementById('import-modal-backdrop');
+    if (backdrop) {
+        backdrop.classList.add('hidden');
+    }
+}
+
+function setImportFormDisabled(disabled) {
+    var fields = document.getElementById('import-form-fields');
+    if (!fields) {
+        return;
+    }
+
+    Array.from(fields.querySelectorAll('input, select, textarea, button')).forEach(function(el) {
+        if (disabled) {
+            el.setAttribute('disabled', 'disabled');
+        } else if (el.type !== 'button' || el.textContent.trim() !== 'Close') {
+            el.removeAttribute('disabled');
+        }
+    });
+    fields.style.opacity = disabled ? '0.55' : '1';
+}
+
+function showImportFeedback(state, message) {
+    var feedback = document.getElementById('import-feedback');
+    if (!feedback) {
+        return;
+    }
+
+    feedback.classList.remove('hidden', 'border-red-700', 'bg-red-950', 'text-red-200', 'border-green-700', 'bg-green-950', 'text-green-200', 'border-go-blue', 'bg-dark-700', 'text-dark-100');
+
+    if (state === 'loading') {
+        feedback.classList.add('border-go-blue', 'bg-dark-700', 'text-dark-100');
+        feedback.innerHTML = '<div class="flex items-center gap-3"><span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-go-blue border-t-transparent"></span><div><div class="font-medium">Importing...</div><div class="text-sm text-dark-300">This can take a moment for larger boards.</div></div></div>';
+        return;
+    }
+
+    if (state === 'success') {
+        feedback.classList.add('border-green-700', 'bg-green-950', 'text-green-200');
+        feedback.innerHTML = '<div class="font-medium">Success!</div><div class="text-sm mt-1">' + escapeHtml(message || 'Board imported successfully.') + '</div>';
+        return;
+    }
+
+    feedback.classList.add('border-red-700', 'bg-red-950', 'text-red-200');
+    feedback.innerHTML = '<div class="font-medium">Import failed</div><div class="text-sm mt-1">' + escapeHtml(message || 'Something went wrong while importing.') + '</div>';
+}
+
+function startImportFeedback() {
+    showImportFeedback('loading');
+    setImportFormDisabled(true);
+}
+
+function finishImportFeedback(event) {
+    if (!event.detail.successful) {
+        return;
+    }
+
+    var form = document.getElementById('trello-import-form');
+    if (form) {
+        form.reset();
+    }
+    setImportFormDisabled(false);
+    toggleImportPgFields();
+    showImportFeedback('success', 'Your Trello board is ready.');
+}
+
+function escapeHtml(value) {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+window.toggleCreatePgFields = toggleCreatePgFields;
+window.toggleImportPgFields = toggleImportPgFields;
+window.openImportModal = openImportModal;
+window.closeImportModal = closeImportModal;
+window.startImportFeedback = startImportFeedback;
+window.finishImportFeedback = finishImportFeedback;
 
 function initializeSortable() {
     var columnsContainer = document.getElementById('columns-container');
@@ -354,6 +471,9 @@ function closeModalAndRefresh(boardId) {
 function closeConnModal() {
     document.getElementById('conn-modal-backdrop').classList.add('hidden');
     htmx.ajax('GET', '/', {target: '#boards-list', swap: 'innerHTML'});
+    if (!document.getElementById('import-modal-backdrop').classList.contains('hidden')) {
+        htmx.ajax('GET', '/boards/import-modal', {target: '#import-modal-content', swap: 'innerHTML'});
+    }
 }
 
 // Board rename functions
