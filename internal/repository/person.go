@@ -16,9 +16,9 @@ func NewSQLitePersonRepository(db *sql.DB) *SQLitePersonRepository {
 func (r *SQLitePersonRepository) GetByID(id int64) (*models.Person, error) {
 	person := &models.Person{}
 	err := r.db.QueryRow(
-		"SELECT id, board_id, name, created_at FROM people WHERE id = ?",
+		"SELECT id, board_id, name, color, created_at FROM people WHERE id = ?",
 		id,
-	).Scan(&person.ID, &person.BoardID, &person.Name, &person.CreatedAt)
+	).Scan(&person.ID, &person.BoardID, &person.Name, &person.Color, &person.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -26,7 +26,7 @@ func (r *SQLitePersonRepository) GetByID(id int64) (*models.Person, error) {
 }
 
 func (r *SQLitePersonRepository) GetByBoardID(boardID int64) ([]models.Person, error) {
-	rows, err := r.db.Query("SELECT id, board_id, name, created_at FROM people WHERE board_id = ? ORDER BY name", boardID)
+	rows, err := r.db.Query("SELECT id, board_id, name, color, created_at FROM people WHERE board_id = ? ORDER BY name", boardID)
 	if err != nil {
 		return nil, err
 	}
@@ -35,7 +35,7 @@ func (r *SQLitePersonRepository) GetByBoardID(boardID int64) ([]models.Person, e
 	var people []models.Person
 	for rows.Next() {
 		var person models.Person
-		if err := rows.Scan(&person.ID, &person.BoardID, &person.Name, &person.CreatedAt); err != nil {
+		if err := rows.Scan(&person.ID, &person.BoardID, &person.Name, &person.Color, &person.CreatedAt); err != nil {
 			return nil, err
 		}
 		people = append(people, person)
@@ -44,9 +44,12 @@ func (r *SQLitePersonRepository) GetByBoardID(boardID int64) ([]models.Person, e
 }
 
 func (r *SQLitePersonRepository) Create(person *models.Person) error {
+	if person.Color == "" {
+		person.Color = models.DefaultPersonColor
+	}
 	result, err := r.db.Exec(
-		"INSERT INTO people (name, board_id) VALUES (?, ?)",
-		person.Name, person.BoardID,
+		"INSERT INTO people (name, board_id, color) VALUES (?, ?, ?)",
+		person.Name, person.BoardID, person.Color,
 	)
 	if err != nil {
 		return err
@@ -59,6 +62,14 @@ func (r *SQLitePersonRepository) Create(person *models.Person) error {
 	return nil
 }
 
+func (r *SQLitePersonRepository) Update(person *models.Person) error {
+	_, err := r.db.Exec(
+		"UPDATE people SET name = ?, color = ? WHERE id = ? AND board_id = ?",
+		person.Name, person.Color, person.ID, person.BoardID,
+	)
+	return err
+}
+
 func (r *SQLitePersonRepository) Delete(id int64) error {
 	_, err := r.db.Exec("DELETE FROM people WHERE id = ?", id)
 	return err
@@ -66,7 +77,7 @@ func (r *SQLitePersonRepository) Delete(id int64) error {
 
 func (r *SQLitePersonRepository) GetByCardID(cardID int64) ([]models.Person, error) {
 	rows, err := r.db.Query(
-		`SELECT p.id, p.board_id, p.name, p.created_at
+		`SELECT p.id, p.board_id, p.name, p.color, p.created_at
 		FROM people p
 		JOIN card_assignees ca ON p.id = ca.person_id
 		WHERE ca.card_id = ?
@@ -81,7 +92,7 @@ func (r *SQLitePersonRepository) GetByCardID(cardID int64) ([]models.Person, err
 	var people []models.Person
 	for rows.Next() {
 		var person models.Person
-		if err := rows.Scan(&person.ID, &person.BoardID, &person.Name, &person.CreatedAt); err != nil {
+		if err := rows.Scan(&person.ID, &person.BoardID, &person.Name, &person.Color, &person.CreatedAt); err != nil {
 			return nil, err
 		}
 		people = append(people, person)

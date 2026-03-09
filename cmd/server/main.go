@@ -124,6 +124,7 @@ func main() {
 
 	// People routes
 	e.POST("/people", personHandler.CreatePerson)
+	e.PUT("/people/:id", personHandler.UpdatePerson)
 	e.DELETE("/people/:id", personHandler.DeletePerson)
 
 	// Connection routes

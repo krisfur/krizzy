@@ -155,6 +155,7 @@ function handleBoardEvent(event) {
             break;
         case 'people.updated':
             refreshPeopleModal(boardId);
+            refreshColumnsContainer(boardId);
             if (getCurrentModalCardId()) {
                 refreshOpenCardModal(boardId, getCurrentModalCardId());
             }

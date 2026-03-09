@@ -34,6 +34,7 @@ type PersonRepository interface {
 	GetByID(id int64) (*models.Person, error)
 	GetByBoardID(boardID int64) ([]models.Person, error)
 	Create(person *models.Person) error
+	Update(person *models.Person) error
 	Delete(id int64) error
 	GetByCardID(cardID int64) ([]models.Person, error)
 	SetCardAssignees(cardID int64, personIDs []int64) error

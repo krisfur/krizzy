@@ -17,9 +17,9 @@ func NewPgPersonRepository(db *sql.DB, boardID int64) *PgPersonRepository {
 func (r *PgPersonRepository) GetByID(id int64) (*models.Person, error) {
 	person := &models.Person{}
 	err := r.db.QueryRow(
-		"SELECT id, name, created_at FROM people WHERE id = $1",
+		"SELECT id, name, color, created_at FROM people WHERE id = $1",
 		id,
-	).Scan(&person.ID, &person.Name, &person.CreatedAt)
+	).Scan(&person.ID, &person.Name, &person.Color, &person.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -29,7 +29,7 @@ func (r *PgPersonRepository) GetByID(id int64) (*models.Person, error) {
 
 func (r *PgPersonRepository) GetByBoardID(boardID int64) ([]models.Person, error) {
 	// In Postgres mode, all people belong to this board's DB
-	rows, err := r.db.Query("SELECT id, name, created_at FROM people ORDER BY name")
+	rows, err := r.db.Query("SELECT id, name, color, created_at FROM people ORDER BY name")
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +38,7 @@ func (r *PgPersonRepository) GetByBoardID(boardID int64) ([]models.Person, error
 	var people []models.Person
 	for rows.Next() {
 		var person models.Person
-		if err := rows.Scan(&person.ID, &person.Name, &person.CreatedAt); err != nil {
+		if err := rows.Scan(&person.ID, &person.Name, &person.Color, &person.CreatedAt); err != nil {
 			return nil, err
 		}
 		person.BoardID = r.boardID
@@ -48,15 +48,26 @@ func (r *PgPersonRepository) GetByBoardID(boardID int64) ([]models.Person, error
 }
 
 func (r *PgPersonRepository) Create(person *models.Person) error {
+	if person.Color == "" {
+		person.Color = models.DefaultPersonColor
+	}
 	err := r.db.QueryRow(
-		"INSERT INTO people (name) VALUES ($1) RETURNING id",
-		person.Name,
+		"INSERT INTO people (name, color) VALUES ($1, $2) RETURNING id",
+		person.Name, person.Color,
 	).Scan(&person.ID)
 	if err != nil {
 		return err
 	}
 	person.BoardID = r.boardID
 	return nil
+}
+
+func (r *PgPersonRepository) Update(person *models.Person) error {
+	_, err := r.db.Exec(
+		"UPDATE people SET name = $1, color = $2 WHERE id = $3",
+		person.Name, person.Color, person.ID,
+	)
+	return err
 }
 
 func (r *PgPersonRepository) Delete(id int64) error {
@@ -66,7 +77,7 @@ func (r *PgPersonRepository) Delete(id int64) error {
 
 func (r *PgPersonRepository) GetByCardID(cardID int64) ([]models.Person, error) {
 	rows, err := r.db.Query(
-		`SELECT p.id, p.name, p.created_at
+		`SELECT p.id, p.name, p.color, p.created_at
 		FROM people p
 		JOIN card_assignees ca ON p.id = ca.person_id
 		WHERE ca.card_id = $1
@@ -81,7 +92,7 @@ func (r *PgPersonRepository) GetByCardID(cardID int64) ([]models.Person, error) 
 	var people []models.Person
 	for rows.Next() {
 		var person models.Person
-		if err := rows.Scan(&person.ID, &person.Name, &person.CreatedAt); err != nil {
+		if err := rows.Scan(&person.ID, &person.Name, &person.Color, &person.CreatedAt); err != nil {
 			return nil, err
 		}
 		person.BoardID = r.boardID
