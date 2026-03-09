@@ -47,11 +47,17 @@ func (r *PgCommentRepository) GetByCardID(cardID int64) ([]models.Comment, error
 }
 
 func (r *PgCommentRepository) Create(comment *models.Comment) error {
-	err := r.db.QueryRow(
-		"INSERT INTO comments (card_id, content) VALUES ($1, $2) RETURNING id",
-		comment.CardID, comment.Content,
+	if comment.CreatedAt.IsZero() {
+		return r.db.QueryRow(
+			"INSERT INTO comments (card_id, content) VALUES ($1, $2) RETURNING id",
+			comment.CardID, comment.Content,
+		).Scan(&comment.ID)
+	}
+
+	return r.db.QueryRow(
+		"INSERT INTO comments (card_id, content, created_at) VALUES ($1, $2, $3) RETURNING id",
+		comment.CardID, comment.Content, comment.CreatedAt,
 	).Scan(&comment.ID)
-	return err
 }
 
 func (r *PgCommentRepository) Delete(id int64) error {

@@ -109,7 +109,7 @@ templ BoardsList(boards []models.Board, connections []models.PgConnection) {
 
 	<div class="mb-6 bg-dark-800 rounded-lg p-4 border border-dark-600">
 		<h2 class="text-lg font-semibold text-dark-200 mb-2">Import Trello JSON</h2>
-		<p class="text-sm text-dark-400 mb-3">Imports only non-archive lists, skips attachments/images, and merges multiple card checklists into one.</p>
+		<p class="text-sm text-dark-400 mb-3">Imports all open lists, skips archived cards plus attachments/images, merges multiple card checklists into one, and brings comments over without author names.</p>
 		<form
 			hx-post="/boards/import-trello"
 			hx-encoding="multipart/form-data"

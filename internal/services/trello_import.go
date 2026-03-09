@@ -25,6 +25,7 @@ type trelloBoardExport struct {
 	Cards      []trelloCard      `json:"cards"`
 	Checklists []trelloChecklist `json:"checklists"`
 	Members    []trelloMember    `json:"members"`
+	Actions    []trelloAction    `json:"actions"`
 }
 
 type trelloList struct {
@@ -65,6 +66,21 @@ type trelloMember struct {
 	Username string `json:"username"`
 }
 
+type trelloAction struct {
+	Type string           `json:"type"`
+	Date string           `json:"date"`
+	Data trelloActionData `json:"data"`
+}
+
+type trelloActionData struct {
+	Text string           `json:"text"`
+	Card trelloActionCard `json:"card"`
+}
+
+type trelloActionCard struct {
+	ID string `json:"id"`
+}
+
 func (s *TrelloImportService) ImportBoard(r io.Reader, boardName, dbType string, pgConnectionID *int64, pgDatabaseName string) (*models.Board, error) {
 	var export trelloBoardExport
 	if err := json.NewDecoder(r).Decode(&export); err != nil {
@@ -82,14 +98,14 @@ func (s *TrelloImportService) ImportBoard(r io.Reader, boardName, dbType string,
 	activeLists := make([]trelloList, 0, len(export.Lists))
 	activeListIDs := make(map[string]struct{}, len(export.Lists))
 	for _, list := range export.Lists {
-		if list.Closed || isArchiveList(list.Name) {
+		if list.Closed {
 			continue
 		}
 		activeLists = append(activeLists, list)
 		activeListIDs[list.ID] = struct{}{}
 	}
 	if len(activeLists) == 0 {
-		return nil, fmt.Errorf("no non-archive lists found in Trello export")
+		return nil, fmt.Errorf("no open lists found in Trello export")
 	}
 	sort.Slice(activeLists, func(i, j int) bool {
 		return activeLists[i].Pos < activeLists[j].Pos
@@ -179,6 +195,42 @@ func (s *TrelloImportService) ImportBoard(r io.Reader, boardName, dbType string,
 		})
 	}
 
+	commentsByCardID := make(map[string][]models.Comment)
+	for _, action := range export.Actions {
+		if action.Type != "commentCard" {
+			continue
+		}
+		cardID := strings.TrimSpace(action.Data.Card.ID)
+		content := strings.TrimSpace(action.Data.Text)
+		if cardID == "" || content == "" {
+			continue
+		}
+		comment := models.Comment{Content: content}
+		if action.Date != "" {
+			parsed, err := time.Parse(time.RFC3339, action.Date)
+			if err == nil {
+				comment.CreatedAt = parsed
+			}
+		}
+		commentsByCardID[cardID] = append(commentsByCardID[cardID], comment)
+	}
+	for cardID := range commentsByCardID {
+		sort.Slice(commentsByCardID[cardID], func(i, j int) bool {
+			left := commentsByCardID[cardID][i].CreatedAt
+			right := commentsByCardID[cardID][j].CreatedAt
+			if left.Equal(right) {
+				return commentsByCardID[cardID][i].Content < commentsByCardID[cardID][j].Content
+			}
+			if left.IsZero() {
+				return false
+			}
+			if right.IsZero() {
+				return true
+			}
+			return left.Before(right)
+		})
+	}
+
 	cardsByListID := make(map[string][]trelloCard)
 	for _, card := range activeCards {
 		cardsByListID[card.IDList] = append(cardsByListID[card.IDList], card)
@@ -239,6 +291,10 @@ func (s *TrelloImportService) ImportBoard(r io.Reader, boardName, dbType string,
 					return nil, fmt.Errorf("failed to import assignees for %q: %w", card.Title, err)
 				}
 			}
+
+			if err := s.importComments(svc, card.ID, commentsByCardID[cardData.ID]); err != nil {
+				return nil, fmt.Errorf("failed to import comments for %q: %w", card.Title, err)
+			}
 		}
 	}
 
@@ -284,6 +340,17 @@ func (s *TrelloImportService) importChecklistItems(svc *KanbanService, cardID in
 	return nil
 }
 
-func isArchiveList(name string) bool {
-	return strings.Contains(strings.ToLower(strings.TrimSpace(name)), "archive")
+func (s *TrelloImportService) importComments(svc *KanbanService, cardID int64, comments []models.Comment) error {
+	for _, commentData := range comments {
+		comment := &models.Comment{
+			CardID:    cardID,
+			Content:   commentData.Content,
+			CreatedAt: commentData.CreatedAt,
+		}
+		if err := svc.CommentRepo.Create(comment); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

@@ -47,10 +47,21 @@ func (r *SQLiteCommentRepository) GetByCardID(cardID int64) ([]models.Comment, e
 }
 
 func (r *SQLiteCommentRepository) Create(comment *models.Comment) error {
-	result, err := r.db.Exec(
-		"INSERT INTO comments (card_id, content) VALUES (?, ?)",
-		comment.CardID, comment.Content,
+	var (
+		result sql.Result
+		err    error
 	)
+	if comment.CreatedAt.IsZero() {
+		result, err = r.db.Exec(
+			"INSERT INTO comments (card_id, content) VALUES (?, ?)",
+			comment.CardID, comment.Content,
+		)
+	} else {
+		result, err = r.db.Exec(
+			"INSERT INTO comments (card_id, content, created_at) VALUES (?, ?, ?)",
+			comment.CardID, comment.Content, comment.CreatedAt,
+		)
+	}
 	if err != nil {
 		return err
 	}
