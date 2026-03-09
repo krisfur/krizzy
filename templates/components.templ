@@ -93,7 +93,7 @@ templ AssigneePicker(cardID int64, assignees []models.Person, allPeople []models
 				<div class="flex gap-1 mt-1 flex-wrap">
 					for _, assignee := range assignees {
 						<span class="text-xs px-2 py-0.5 rounded-full border font-medium" style={ personBadgeStyle(assignee.Color) } title={ assignee.Name }>
-							{ personBadgeLabel(assignee.Name) }
+							{ assignee.Name }
 						</span>
 					}
 				</div>

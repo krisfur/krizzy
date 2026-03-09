@@ -537,6 +537,78 @@ document.addEventListener('keydown', function(event) {
     }
 });
 
+function startRenamePerson(personId) {
+    var form = document.getElementById('rename-person-form-' + personId);
+    var row = document.getElementById('person-row-' + personId);
+    var input = document.getElementById('rename-person-input-' + personId);
+    if (form && input) {
+        closeAllPersonRenameForms(personId);
+        form.classList.remove('hidden');
+        if (row) {
+            row.classList.add('hidden');
+        }
+        input.focus();
+        input.select();
+    }
+}
+
+function cancelRenamePerson(personId) {
+    var form = document.getElementById('rename-person-form-' + personId);
+    var row = document.getElementById('person-row-' + personId);
+    if (form) {
+        form.classList.add('hidden');
+    }
+    if (row) {
+        row.classList.remove('hidden');
+    }
+}
+
+function closeAllPersonRenameForms(exceptPersonId) {
+    document.querySelectorAll('[id^="rename-person-form-"]').forEach(function(form) {
+        var id = form.id.replace('rename-person-form-', '');
+        if (!exceptPersonId || String(id) !== String(exceptPersonId)) {
+            cancelRenamePerson(id);
+        }
+    });
+}
+
+function resetPersonColor(personId, defaultColor) {
+    var form = document.getElementById('person-color-form-' + personId);
+    if (!form) {
+        return;
+    }
+
+    var input = form.querySelector('input[name="color"]');
+    if (!input) {
+        return;
+    }
+
+    input.value = defaultColor;
+    form.requestSubmit();
+}
+
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        closeAllPersonRenameForms();
+    }
+});
+
+document.addEventListener('click', function(event) {
+    document.querySelectorAll('[id^="rename-person-form-"]').forEach(function(form) {
+        if (form.classList.contains('hidden')) {
+            return;
+        }
+
+        var id = form.id.replace('rename-person-form-', '');
+        var row = document.getElementById('person-row-' + id);
+        if (form.contains(event.target) || (row && row.contains(event.target))) {
+            return;
+        }
+
+        cancelRenamePerson(id);
+    });
+});
+
 document.addEventListener('click', function(event) {
     document.querySelectorAll('[id^="rename-column-form-"]').forEach(function(form) {
         if (form.classList.contains('hidden')) {
