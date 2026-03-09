@@ -220,7 +220,7 @@ templ PeopleList(people []models.Person, boardID int64) {
 								<button
 									type="button"
 									class="px-2 py-2 text-xs bg-dark-600 text-dark-200 rounded hover:bg-dark-500"
-									onclick={ templ.ComponentScript{Call: fmt.Sprintf("resetPersonColor(%d, '%s')", person.ID, models.DefaultPersonColor)} }
+									onclick={ templ.ComponentScript{Call: fmt.Sprintf("resetPersonColor(event, %d, '%s')", person.ID, models.DefaultPersonColor)} }
 								>
 									Default
 								</button>

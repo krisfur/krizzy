@@ -572,7 +572,12 @@ function closeAllPersonRenameForms(exceptPersonId) {
     });
 }
 
-function resetPersonColor(personId, defaultColor) {
+function resetPersonColor(event, personId, defaultColor) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+
     var form = document.getElementById('person-color-form-' + personId);
     if (!form) {
         return;
@@ -584,7 +589,7 @@ function resetPersonColor(personId, defaultColor) {
     }
 
     input.value = defaultColor;
-    form.requestSubmit();
+    input.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
 document.addEventListener('keydown', function(event) {
