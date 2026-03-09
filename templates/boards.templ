@@ -14,6 +14,15 @@ templ BoardsPage(boards []models.Board, connections []models.PgConnection) {
 			<div id="boards-list">
 				@BoardsList(boards, connections)
 			</div>
+			<div
+				id="import-modal-backdrop"
+				class="hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50"
+				onclick="if(event.target === this) closeImportModal()"
+			>
+				<div id="import-modal-content" class="bg-dark-800 rounded-lg shadow-xl max-w-2xl w-full mx-4 border border-dark-600" onclick="event.stopPropagation()">
+					<!-- Loaded via HTMX -->
+				</div>
+			</div>
 			<!-- Connections Modal -->
 			<div
 				id="conn-modal-backdrop"
@@ -31,7 +40,16 @@ templ BoardsPage(boards []models.Board, connections []models.PgConnection) {
 templ BoardsList(boards []models.Board, connections []models.PgConnection) {
 	<!-- Create Board Form -->
 	<div class="mb-6 bg-dark-800 rounded-lg p-4 border border-dark-600">
-		<h2 class="text-lg font-semibold text-dark-200 mb-3">Create New Board</h2>
+		<div class="flex items-center justify-between gap-3 mb-3">
+			<h2 class="text-lg font-semibold text-dark-200">Create New Board</h2>
+			<button
+				type="button"
+				class="px-3 py-1.5 text-sm bg-dark-700 text-dark-100 rounded border border-dark-600 hover:bg-dark-600"
+				onclick="openImportModal()"
+			>
+				Import from...
+			</button>
+		</div>
 		<form
 			hx-post="/boards"
 			hx-target="#boards-list"
@@ -115,6 +133,96 @@ templ BoardsList(boards []models.Board, connections []models.PgConnection) {
 		for _, board := range boards {
 			@BoardCard(&board)
 		}
+	</div>
+}
+
+templ ImportBoardModal(connections []models.PgConnection) {
+	<div class="p-6">
+		<div class="flex items-start justify-between gap-4 mb-4">
+			<div>
+				<h2 class="text-xl font-bold text-dark-100">Import Board</h2>
+				<p class="text-sm text-dark-400 mt-1">Start with Trello JSON now, with room for more import sources later.</p>
+			</div>
+			<button type="button" class="text-dark-400 hover:text-dark-200" onclick="closeImportModal()">
+				<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+				</svg>
+			</button>
+		</div>
+
+		<div id="import-feedback" class="hidden mb-4 rounded-lg border px-4 py-3"></div>
+
+		<form
+			id="trello-import-form"
+			hx-post="/boards/import-trello"
+			hx-encoding="multipart/form-data"
+			hx-target="#boards-list"
+			hx-swap="innerHTML"
+			hx-on::before-request="startImportFeedback()"
+			hx-on::after-request="finishImportFeedback(event)"
+		>
+			<div id="import-form-fields" class="space-y-4">
+				<div class="rounded-lg border border-dark-600 bg-dark-700/60 p-4">
+					<div class="flex items-center justify-between gap-3 mb-2">
+						<h3 class="text-base font-semibold text-dark-100">Trello JSON</h3>
+						<span class="text-xs uppercase tracking-[0.2em] text-go-blue">Available</span>
+					</div>
+					<p class="text-sm text-dark-400 mb-3">Imports all open lists, skips archived cards plus attachments/images, merges multiple checklists, and imports comments without author names.</p>
+					<input
+						type="file"
+						name="trello_file"
+						accept="application/json,.json"
+						class="w-full px-3 py-2 rounded border border-dark-600 bg-dark-700 text-dark-200 file:mr-3 file:border-0 file:bg-go-blue file:px-3 file:py-1.5 file:text-white file:rounded hover:file:bg-go-blue-dark"
+						required
+					/>
+				</div>
+
+				<div>
+					<label class="block text-sm text-dark-300 mb-1">Board Name Override</label>
+					<input
+						type="text"
+						name="name"
+						placeholder="Optional board name override"
+						class="w-full px-3 py-2 rounded border border-dark-600 bg-dark-700 text-dark-100 placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-go-blue focus:border-transparent"
+					/>
+				</div>
+
+				<div>
+					<label class="block text-sm text-dark-300 mb-1">Database Type</label>
+					<select id="import-db-type" name="db_type" class="w-full px-3 py-2 rounded border border-dark-600 bg-dark-700 text-dark-100 focus:outline-none focus:ring-2 focus:ring-go-blue focus:border-transparent" onchange="toggleImportPgFields()">
+						<option value="local">Local (SQLite)</option>
+						<option value="postgres">PostgreSQL</option>
+					</select>
+				</div>
+
+				<div id="import-pg-fields" style="display: none;">
+					<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+						<div>
+							<label class="block text-sm text-dark-300 mb-1">Connection</label>
+							<select name="pg_connection_id" class="w-full px-3 py-2 rounded border border-dark-600 bg-dark-700 text-dark-100 focus:outline-none focus:ring-2 focus:ring-go-blue focus:border-transparent">
+								if len(connections) == 0 {
+									<option value="">No connections - add one first</option>
+								} else {
+									for _, conn := range connections {
+										<option value={ fmt.Sprintf("%d", conn.ID) }>{ conn.Name } ({ conn.Host }:{ fmt.Sprintf("%d", conn.Port) })</option>
+									}
+								}
+							</select>
+						</div>
+						<div>
+							<label class="block text-sm text-dark-300 mb-1">Database Name</label>
+							<input type="text" name="pg_database_name" placeholder="trello_import_db" class="w-full px-3 py-2 rounded border border-dark-600 bg-dark-700 text-dark-100 placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-go-blue focus:border-transparent"/>
+						</div>
+					</div>
+					<button type="button" class="mt-2 px-3 py-1 text-xs bg-dark-600 text-dark-300 rounded hover:bg-dark-500 hover:text-dark-100" hx-get="/connections" hx-target="#conn-modal-content" hx-swap="innerHTML" onclick="document.getElementById('conn-modal-backdrop').classList.remove('hidden')">Manage Connections</button>
+				</div>
+
+				<div class="flex items-center justify-end gap-3 pt-2">
+					<button type="button" class="px-4 py-2 bg-dark-700 text-dark-200 rounded hover:bg-dark-600" onclick="closeImportModal()">Cancel</button>
+					<button type="submit" class="px-4 py-2 bg-go-blue text-white rounded hover:bg-go-blue-dark font-medium">Import Board</button>
+				</div>
+			</div>
+		</form>
 	</div>
 }
 

@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"io"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"krizzy/internal/services"
 	"krizzy/internal/validation"
@@ -12,11 +14,15 @@ import (
 )
 
 type BoardHandler struct {
-	bm *services.BoardManager
+	bm             *services.BoardManager
+	trelloImporter *services.TrelloImportService
 }
 
 func NewBoardHandler(bm *services.BoardManager) *BoardHandler {
-	return &BoardHandler{bm: bm}
+	return &BoardHandler{
+		bm:             bm,
+		trelloImporter: services.NewTrelloImportService(bm),
+	}
 }
 
 // ListBoards shows all boards
@@ -36,6 +42,15 @@ func (h *BoardHandler) ListBoards(c echo.Context) error {
 	}
 
 	return templates.BoardsPage(boards, connections).Render(c.Request().Context(), c.Response().Writer)
+}
+
+func (h *BoardHandler) GetImportModal(c echo.Context) error {
+	connections, err := h.bm.PgConnRepo().GetAll()
+	if err != nil {
+		return c.String(http.StatusInternalServerError, "Failed to load connections")
+	}
+
+	return templates.ImportBoardModal(connections).Render(c.Request().Context(), c.Response().Writer)
 }
 
 // GetBoard shows a specific board
@@ -63,10 +78,17 @@ func (h *BoardHandler) GetBoard(c echo.Context) error {
 }
 
 type CreateBoardRequest struct {
-	Name             string `form:"name"`
-	DbType           string `form:"db_type"`
-	PgConnectionID   int64  `form:"pg_connection_id"`
-	PgDatabaseName   string `form:"pg_database_name"`
+	Name           string `form:"name"`
+	DbType         string `form:"db_type"`
+	PgConnectionID int64  `form:"pg_connection_id"`
+	PgDatabaseName string `form:"pg_database_name"`
+}
+
+type ImportTrelloRequest struct {
+	Name           string `form:"name"`
+	DbType         string `form:"db_type"`
+	PgConnectionID int64  `form:"pg_connection_id"`
+	PgDatabaseName string `form:"pg_database_name"`
 }
 
 // CreateBoard creates a new board
@@ -93,6 +115,51 @@ func (h *BoardHandler) CreateBoard(c echo.Context) error {
 	_, err := h.bm.CreateBoard(req.Name, req.DbType, pgConnID, req.PgDatabaseName)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to create board: "+err.Error())
+	}
+
+	boards, err := h.bm.GetAllBoards()
+	if err != nil {
+		return c.String(http.StatusInternalServerError, "Failed to load boards")
+	}
+
+	connections, err := h.bm.PgConnRepo().GetAll()
+	if err != nil {
+		return c.String(http.StatusInternalServerError, "Failed to load connections")
+	}
+
+	return templates.BoardsList(boards, connections).Render(c.Request().Context(), c.Response().Writer)
+}
+
+func (h *BoardHandler) ImportTrelloBoard(c echo.Context) error {
+	var req ImportTrelloRequest
+	if err := c.Bind(&req); err != nil {
+		return c.String(http.StatusBadRequest, "Invalid request")
+	}
+
+	req.Name = strings.TrimSpace(req.Name)
+	if req.DbType == "" {
+		req.DbType = "local"
+	}
+
+	fileHeader, err := c.FormFile("trello_file")
+	if err != nil {
+		return c.String(http.StatusBadRequest, "Trello JSON file is required")
+	}
+
+	file, err := fileHeader.Open()
+	if err != nil {
+		return c.String(http.StatusBadRequest, "Failed to read uploaded file")
+	}
+	defer file.Close()
+
+	var pgConnID *int64
+	if req.DbType == "postgres" && req.PgConnectionID > 0 {
+		pgConnID = &req.PgConnectionID
+	}
+
+	reader := io.LimitReader(file, 25<<20)
+	if _, err := h.trelloImporter.ImportBoard(reader, req.Name, req.DbType, pgConnID, req.PgDatabaseName); err != nil {
+		return c.String(http.StatusBadRequest, "Failed to import Trello board: "+err.Error())
 	}
 
 	boards, err := h.bm.GetAllBoards()

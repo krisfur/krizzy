@@ -70,7 +70,9 @@ func main() {
 
 	// Board list routes
 	e.GET("/", boardHandler.ListBoards)
+	e.GET("/boards/import-modal", boardHandler.GetImportModal)
 	e.POST("/boards", boardHandler.CreateBoard)
+	e.POST("/boards/import-trello", boardHandler.ImportTrelloBoard)
 	e.GET("/boards/:id", boardHandler.GetBoard)
 	e.GET("/boards/:id/events", realtimeHandler.StreamBoardEvents)
 	e.GET("/boards/:id/columns", realtimeHandler.GetColumnsContainer)
