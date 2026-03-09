@@ -152,19 +152,103 @@ templ PeopleList(people []models.Person, boardID int64) {
 			<p class="text-dark-400 text-sm">No people added yet.</p>
 		} else {
 			for _, person := range people {
-				<div class="flex items-center justify-between p-2 bg-dark-700 rounded border border-dark-600">
-					<span class="text-dark-200">{ person.Name }</span>
-					<button
-						class="text-red-400 hover:text-red-300"
-						hx-delete={ fmt.Sprintf("/people/%d?board_id=%d", person.ID, boardID) }
+				<div class="p-3 bg-dark-700 rounded border border-dark-600 space-y-3">
+					<form
+						id={ fmt.Sprintf("rename-person-form-%d", person.ID) }
+						hx-put={ fmt.Sprintf("/people/%d", person.ID) }
 						hx-target="#people-list"
 						hx-swap="innerHTML"
-						hx-confirm={ fmt.Sprintf("Remove %s?", person.Name) }
+						hx-on::after-request={ templ.ComponentScript{Call: fmt.Sprintf("cancelRenamePerson(%d)", person.ID)} }
+						class="hidden"
 					>
-						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-						</svg>
-					</button>
+						<input type="hidden" name="board_id" value={ fmt.Sprintf("%d", boardID) }/>
+						<input type="hidden" name="color" value={ person.Color }/>
+						<div class="flex items-start gap-2">
+							<input
+								id={ fmt.Sprintf("rename-person-input-%d", person.ID) }
+								type="text"
+								name="name"
+								value={ person.Name }
+								class="flex-1 px-3 py-2 border border-dark-600 rounded-md bg-dark-800 text-dark-100 placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-go-blue focus:border-transparent"
+								required
+							/>
+							<div class="flex gap-2 shrink-0">
+								<button
+									type="submit"
+									class="px-3 py-2 bg-go-blue text-white rounded hover:bg-go-blue-dark text-sm font-medium"
+								>
+									Save
+								</button>
+								<button
+									type="button"
+									onclick={ templ.ComponentScript{Call: fmt.Sprintf("cancelRenamePerson(%d)", person.ID)} }
+									class="px-3 py-2 bg-dark-600 text-dark-200 rounded hover:bg-dark-500 text-sm font-medium"
+								>
+									Cancel
+								</button>
+							</div>
+						</div>
+					</form>
+					<div id={ fmt.Sprintf("person-row-%d", person.ID) } class="flex items-center justify-between gap-3">
+						<div class="flex items-center gap-3 min-w-0 flex-1">
+							<span class="inline-flex h-8 w-8 items-center justify-center rounded-full border text-xs font-semibold shrink-0" style={ personBadgeStyle(person.Color) } title={ person.Name }>
+								{ personBadgeLabel(person.Name) }
+							</span>
+							<div class="min-w-0">
+								<p class="text-dark-100 font-medium truncate">{ person.Name }</p>
+								<p class="text-xs text-dark-400">Card badges use initials; modal badges keep full names.</p>
+							</div>
+						</div>
+						<div class="flex items-center gap-2 shrink-0">
+							<form
+								id={ fmt.Sprintf("person-color-form-%d", person.ID) }
+								hx-put={ fmt.Sprintf("/people/%d", person.ID) }
+								hx-target="#people-list"
+								hx-swap="innerHTML"
+								hx-trigger="change"
+								class="flex items-center gap-2"
+							>
+								<input type="hidden" name="board_id" value={ fmt.Sprintf("%d", boardID) }/>
+								<input type="hidden" name="name" value={ person.Name }/>
+								<input
+									type="color"
+									name="color"
+									value={ person.Color }
+									class="h-10 w-10 rounded border border-dark-500 bg-dark-800 p-1 cursor-pointer"
+									title={ fmt.Sprintf("Pick a color for %s", person.Name) }
+								/>
+								<button
+									type="button"
+									class="px-2 py-2 text-xs bg-dark-600 text-dark-200 rounded hover:bg-dark-500"
+									onclick={ templ.ComponentScript{Call: fmt.Sprintf("resetPersonColor(event, %d, '%s')", person.ID, models.DefaultPersonColor)} }
+								>
+									Default
+								</button>
+							</form>
+							<button
+								type="button"
+								class="p-2 hover:bg-dark-600 rounded text-dark-400 hover:text-dark-200"
+								onclick={ templ.ComponentScript{Call: fmt.Sprintf("startRenamePerson(%d)", person.ID)} }
+								title="Rename person"
+							>
+								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+								</svg>
+							</button>
+							<button
+								type="button"
+								class="p-2 text-red-400 hover:text-red-300"
+								hx-delete={ fmt.Sprintf("/people/%d?board_id=%d", person.ID, boardID) }
+								hx-target="#people-list"
+								hx-swap="innerHTML"
+								hx-confirm={ fmt.Sprintf("Remove %s?", person.Name) }
+							>
+								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+								</svg>
+							</button>
+						</div>
+					</div>
 				</div>
 			}
 		}

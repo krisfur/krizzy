@@ -23,8 +23,8 @@ templ CardComponent(card *models.Card, boardID int64) {
 		if len(card.Assignees) > 0 {
 			<div class="flex gap-1 mt-2 flex-wrap">
 				for _, assignee := range card.Assignees {
-					<span class="text-xs bg-go-blue bg-opacity-20 text-go-blue px-2 py-0.5 rounded-full border border-go-blue border-opacity-30">
-						{ assignee.Name }
+					<span class="text-xs px-2 py-0.5 rounded-full border font-medium" style={ personBadgeStyle(assignee.Color) } title={ assignee.Name }>
+						{ personBadgeLabel(assignee.Name) }
 					</span>
 				}
 			</div>

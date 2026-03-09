@@ -3,6 +3,7 @@ package templates
 import (
 	"krizzy/internal/models"
 	"fmt"
+	"strings"
 )
 
 func isPersonAssigned(personID int64, assignees []models.Person) bool {
@@ -12,6 +13,35 @@ func isPersonAssigned(personID int64, assignees []models.Person) bool {
 		}
 	}
 	return false
+}
+
+func personBadgeLabel(name string) string {
+	parts := strings.Fields(name)
+	if len(parts) <= 1 {
+		return name
+	}
+
+	var initials strings.Builder
+	for _, part := range parts {
+		runes := []rune(part)
+		if len(runes) == 0 {
+			continue
+		}
+		initials.WriteString(strings.ToUpper(string(runes[0])))
+	}
+
+	label := initials.String()
+	if label == "" {
+		return name
+	}
+	return label
+}
+
+func personBadgeStyle(color string) string {
+	if color == "" {
+		color = "#00ADD8"
+	}
+	return fmt.Sprintf("background-color: %s22; color: %s; border-color: %s66;", color, color, color)
 }
 
 templ AssigneePicker(cardID int64, assignees []models.Person, allPeople []models.Person, boardID int64) {
@@ -62,7 +92,7 @@ templ AssigneePicker(cardID int64, assignees []models.Person, allPeople []models
 				<span class="text-xs text-dark-400">Currently assigned:</span>
 				<div class="flex gap-1 mt-1 flex-wrap">
 					for _, assignee := range assignees {
-						<span class="text-xs bg-go-blue bg-opacity-20 text-go-blue px-2 py-0.5 rounded-full border border-go-blue border-opacity-30">
+						<span class="text-xs px-2 py-0.5 rounded-full border font-medium" style={ personBadgeStyle(assignee.Color) } title={ assignee.Name }>
 							{ assignee.Name }
 						</span>
 					}

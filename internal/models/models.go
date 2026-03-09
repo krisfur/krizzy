@@ -2,6 +2,8 @@ package models
 
 import "time"
 
+const DefaultPersonColor = "#00ADD8"
+
 type PgConnection struct {
 	ID        int64
 	Name      string
@@ -51,6 +53,7 @@ type Person struct {
 	ID        int64
 	BoardID   int64
 	Name      string
+	Color     string
 	CreatedAt time.Time
 }
 

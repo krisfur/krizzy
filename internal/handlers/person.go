@@ -26,6 +26,12 @@ type CreatePersonRequest struct {
 	BoardID int64  `form:"board_id"`
 }
 
+type UpdatePersonRequest struct {
+	Name    string `form:"name"`
+	Color   string `form:"color"`
+	BoardID int64  `form:"board_id"`
+}
+
 func (h *PersonHandler) CreatePerson(c echo.Context) error {
 	var req CreatePersonRequest
 	if err := c.Bind(&req); err != nil {
@@ -42,9 +48,62 @@ func (h *PersonHandler) CreatePerson(c echo.Context) error {
 		return c.String(http.StatusNotFound, "Board not found")
 	}
 
-	person := &models.Person{Name: req.Name, BoardID: req.BoardID}
+	person := &models.Person{
+		Name:    req.Name,
+		BoardID: req.BoardID,
+		Color:   models.DefaultPersonColor,
+	}
 	if err := svc.PersonRepo.Create(person); err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to create person")
+	}
+
+	publishBoardEvent(h.hub, services.BoardEvent{
+		Type:     "people.updated",
+		BoardID:  req.BoardID,
+		ClientID: requestClientID(c),
+	})
+
+	people, err := svc.PersonRepo.GetByBoardID(req.BoardID)
+	if err != nil {
+		return c.String(http.StatusInternalServerError, "Failed to load people")
+	}
+
+	return templates.PeopleList(people, req.BoardID).Render(c.Request().Context(), c.Response().Writer)
+}
+
+func (h *PersonHandler) UpdatePerson(c echo.Context) error {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		return c.String(http.StatusBadRequest, "Invalid person ID")
+	}
+
+	var req UpdatePersonRequest
+	if err := c.Bind(&req); err != nil {
+		return c.String(http.StatusBadRequest, "Invalid request")
+	}
+
+	req.Name = validation.SanitizeName(req.Name)
+	if req.Name == "" {
+		return c.String(http.StatusBadRequest, "Name is required")
+	}
+	req.Color = validation.NormalizePersonColor(req.Color)
+
+	svc, err := h.bm.GetServiceForBoard(req.BoardID)
+	if err != nil {
+		return c.String(http.StatusNotFound, "Board not found")
+	}
+
+	person, err := svc.PersonRepo.GetByID(id)
+	if err != nil {
+		return c.String(http.StatusNotFound, "Person not found")
+	}
+
+	person.Name = req.Name
+	person.Color = req.Color
+	person.BoardID = req.BoardID
+
+	if err := svc.PersonRepo.Update(person); err != nil {
+		return c.String(http.StatusInternalServerError, "Failed to update person")
 	}
 
 	publishBoardEvent(h.hub, services.BoardEvent{
